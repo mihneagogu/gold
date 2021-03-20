@@ -1,22 +1,41 @@
-use std::marker::PhantomData;
-
 use crate::parsing::{ParsingContext, ParserErr, Parser};
 
-#[warn(type_alias_bounds)]
-pub(crate) type ParserFun<T, E /*: ParserErr*/> = dyn Fn(&mut ParsingContext) -> Result<T, E>;
 
-pub fn option_parse<T, E: ParserErr>(p: &ParserFun<T, E>, ctx: &mut ParsingContext) -> Option<T> {
-    p(ctx).map_or(Option::default(), |res| Some(res))
-}
-
-struct OptionParser<P, E> {
+struct AttemptParser<P> {
     inside: P,
-    _data: PhantomData<E> 
 }
 
-impl<P: Parser<E>, E: ParserErr> OptionParser<P, E> {
+impl<P> AttemptParser<P> {
     pub fn new(inside: P) -> Self {
-        Self { inside, _data: PhantomData }
+        Self { inside }
+    }
+}
+
+impl<P: Parser> Parser for AttemptParser<P> {
+    type Output = P::Output;
+    type PErr = P::PErr;
+
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let idx_before = ctx.index;
+        let cursor_before = ctx.cursor;
+        
+        let res = self.inside.parse(ctx);
+        if res.is_err() {
+            ctx.index = idx_before;
+            ctx.cursor = cursor_before;
+        }
+        res
+    }
+}
+
+#[repr(transparent)]
+struct OptionParser<P> {
+    inside: P,
+}
+
+impl<P: Parser> OptionParser<P> {
+    pub fn new(inside: P) -> Self {
+        Self { inside }
     }
 
     fn parse_to_option(&self, ctx: &mut ParsingContext) -> Option<P::Output> {
@@ -27,8 +46,9 @@ impl<P: Parser<E>, E: ParserErr> OptionParser<P, E> {
 
 impl ParserErr for () { }
 
-impl<P: Parser<E>, E: ParserErr> Parser<()> for OptionParser<P, E> {
+impl<P: Parser> Parser for OptionParser<P> {
     type Output = Option<P::Output>;
+    type PErr = ();
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
         let idx_before = ctx.index;

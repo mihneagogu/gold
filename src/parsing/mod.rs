@@ -15,9 +15,10 @@ pub struct ParsingContext<'inp> {
     pub cursor: &'inp str, // Where we are currently in the input
 }
 
-pub trait Parser<E: ParserErr> {
+pub trait Parser {
     type Output;
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, E>;
+    type PErr: ParserErr;
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
 }
 
 impl<'inp> ParsingContext<'inp> {

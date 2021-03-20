@@ -14,15 +14,9 @@ pub(crate) enum NumberParseErr {
 
 impl ParserErr for NumberParseErr {}
 
+
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ParseNumData(i32, i32, String);
-
-#[warn(type_alias_bounds)]
-pub(crate) type Parser<T, E /*: ParserErr*/> = dyn Fn(&mut ParsingContext) -> Result<T, E>;
-
-pub fn option_parse<T, E: ParserErr>(p: &Parser<T, E>, ctx: &mut ParsingContext) -> Option<T> {
-    p(ctx).map_or(Option::default(), |res| Some(res))
-}
 
 pub(crate) fn parse_number(ctx: &mut ParsingContext) -> Result<i32, NumberParseErr> {
     use NumberParseErr::InvalidNumber;

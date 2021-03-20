@@ -3,7 +3,8 @@ mod parsing;
 mod tests;
 
 #[allow(unused_imports)]
-use parsing::literals::{parse_number, option_parse};
+use parsing::literals::parse_number;
+use parsing::combinators::option_parse;
 use parsing::ParsingContext;
 
 

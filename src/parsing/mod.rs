@@ -1,6 +1,8 @@
 use std::fs;
 
 pub mod literals;
+pub mod combinators;
+
 pub trait ParserErr {}
 
 
@@ -11,6 +13,11 @@ pub struct ParsingContext<'inp> {
     pub index: usize, // The place where we are at in the input
     pub input: &'inp str, // The whole input
     pub cursor: &'inp str, // Where we are currently in the input
+}
+
+pub trait Parser<E: ParserErr> {
+    type Output;
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, E>;
 }
 
 impl<'inp> ParsingContext<'inp> {

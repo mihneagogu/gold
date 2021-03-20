@@ -20,9 +20,13 @@ mod parsing_tests {
         let smaller = i32::MIN as i64 - 1;
         let smaller = smaller.to_string();
 
-        assert_eq!(parse_number(bigger.as_str()).is_err(), true);
-        assert_eq!(parse_number(smaller.as_str()).is_err(), true);
+        assert_eq!(parse_number(bigger.as_str()).is_err(), true, "i32::MAX + 1 cannot fit in a 32-bit int");
+        assert_eq!(parse_number(smaller.as_str()).is_err(), true, "i32::MIN - 1 cannot fit in a 32-bit int");
+    }
 
+    #[test]
+    fn invalid_number() {
+        assert_eq!(parse_number("asd").is_err(), true, "Cannot parse \"asd\" as a number");
     }
 }
 

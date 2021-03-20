@@ -2,16 +2,17 @@
 mod parsing;
 mod tests;
 
+#[allow(unused_imports)]
 use parsing::literals::{parse_number, option_parse};
+use parsing::Parser;
 
 
 
 
 fn main() {
-    println!("{:?}", parse_number("asd"));
-    let bigger = i32::MAX as i64 + 1;
-    let smaller = i32::MIN as i64 - 1;
-    let res = option_parse(&parse_number, (bigger - 2).to_string().as_str());
-    
-    println!("{:?} {:?}", parse_number(bigger.to_string().as_str()), parse_number(smaller.to_string().as_str()));
+    let mut p = Parser::from_str("    \nasd");
+    p.eat_ws();
+    println!("idx: {}, cursor: {} row: {}, col: {}", p.index, p.cursor, p.row, p.col);
+    println!("next char: {:?}", p.peek_char());
+
 }

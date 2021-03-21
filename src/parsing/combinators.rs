@@ -11,6 +11,48 @@ pub(crate) struct StringParser {
     expected: &'static str
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct CharParser(char);
+
+impl CharParser {
+    #[inline(always)]
+    pub fn new(ch: char) -> Self {
+        Self(ch)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum CharParseErr {
+    CharMismatch(char, char), // expected, found
+    Empty
+}
+impl ParserErr for CharParseErr {}
+
+impl Parser for CharParser {
+    type Output = char;
+    type PErr = CharParseErr;
+
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        match ctx.peek_char() {
+            None => Err(CharParseErr::Empty),
+            Some(ch) => {
+                let res = if ch == self.0 {
+                    Ok(ch)
+                } else {
+                    Err(CharParseErr::CharMismatch(self.0, ch))
+                };
+                ctx.index += 1;
+                if ch == '\n' {
+                   ctx.row += 1; ctx.col = 1;
+                } else { 
+                    ctx.col += 1;
+                }
+                res
+            }
+        }
+    }
+}
+
 impl StringParser {
     pub fn new(expected: &'static str) -> Self {
         Self { expected }

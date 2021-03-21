@@ -3,7 +3,7 @@ mod parsing;
 mod tests;
 
 #[allow(unused_imports)]
-use parsing::combinators::{AttemptParser, OptionParser, StringParser};
+use parsing::combinators::{AttemptParser, OptionParser, StringParser, AlternativeParser, StringParseErr};
 use parsing::{Parser, ParsingContext, combinators::CharParser};
 use parsing::literals::NumberParser;
 
@@ -35,10 +35,4 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-
-    let mut pctx = ParsingContext::new(" \n  123 as");
-    println!("{:?}", pctx);
-    let res = CharParser::new('1').parse(&mut pctx);
-    println!("res {:?}", res);
-    println!("{:?}", pctx);
 }

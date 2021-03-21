@@ -69,5 +69,38 @@ mod parsing_tests {
         assert_eq!(&o.parse(&mut c), &Ok(Some(-345)), "Option parser is always successful, but might yield a None");
     
     }
+
+    #[test]
+    fn alternative_parser_test() {
+        // Tests whether the alternative correctly parses its variants
+        let mut pctx = ParsingContext::new(" \n  123 as");
+        // Use attempt for this one since we know it will never parse asd first
+        let asd = AttemptParser::new(StringParser::new("asd"));
+        // This should succeed since we didn't eat any input with the first parser
+        let one = StringParser::new("123");
+
+        let ap = vec![&asd as &dyn Parser<Output = &'static str, PErr = StringParseErr>, 
+        &one as &dyn Parser<Output = &'static str, PErr = StringParseErr>];
+        let ap = AlternativeParser::new(ap);
+
+        assert_eq!(ap.parse(&mut pctx).is_ok(), true);
+    }
+
+    #[test]
+    fn alternative_parser_unsuccessful_test() {
+        // Tests whether the alternative correctly parses its variants
+        let mut pctx = ParsingContext::new(" \n  123 as");
+        // This will eat part of the input, which means the parser ONE won't match anymore, since
+        // we ate the "123" in the string with the ASD parser
+        let asd = StringParser::new("asd");
+        // This should succeed since we didn't eat any input with the first parser
+        let one = StringParser::new("123");
+
+        let ap = vec![&asd as &dyn Parser<Output = &'static str, PErr = StringParseErr>, 
+        &one as &dyn Parser<Output = &'static str, PErr = StringParseErr>];
+        let ap = AlternativeParser::new(ap);
+
+        assert_eq!(ap.parse(&mut pctx).is_err(), true);
+    }
 }
 

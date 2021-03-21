@@ -1,5 +1,44 @@
 use crate::parsing::{ParsingContext, ParserErr, Parser};
 
+// TODO(mike): Add labels to all parsers, so that the alternative parser
+// can have its own label like this:
+// "Expected one of <label1>, <label2> ... "
+
+pub(crate) struct AlternativeParser<'ps, O, E> {
+    variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>
+}
+
+impl<'ps, O, E> AlternativeParser<'ps, O, E> {
+    pub fn new(variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>) -> Self {
+        Self { variants }
+    }
+}
+
+impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for AlternativeParser<'ps, O, E> {
+    type Output = O;
+    // TODO(mike): This isn't right, we need a custom error type.
+    type PErr = ();
+    fn parse (&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let mut res = None;
+        for p in &self.variants {
+            let r = p.parse(ctx);
+            println!("parser from attempt: {:?}", r);
+            match r {
+                Ok(o) => { res = Some(o); break; }
+                _ => ()
+            }
+        }
+        if let Some(o) = res {
+            Ok(o)
+        } else {
+            Err( () ) // TODO(mike): Change this to actual error type
+        }
+    }
+
+}
+
+
+
 
 #[derive(Debug)]
 pub(crate) struct AttemptParser<P> {

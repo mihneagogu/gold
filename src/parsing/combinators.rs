@@ -90,21 +90,24 @@ impl<P> AttemptParser<P> {
 }
 
 impl<P: Parser> Parser for AttemptParser<P> {
-    type Output = Option<P::Output>;
+    type Output = P::Output;
     // The attempt parser itself can never fail, but it might not find the thing
     // we are trying to parse
-    type PErr = (); 
+    // TODO(mike): this is wrong, it shpuld still behave like P, but just rollback input if it
+    // doesn't work
+    type PErr = P::PErr;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let state_before = ctx.current_state();
         
         let res = self.inside.parse(ctx);
         
         // If the operation didn't work, just roll back the parser as if nothing had happened
-        match res {
-            Ok(res) => { ctx.eat_ws(); Ok(Some(res)) }
-            Err(_) => { ctx.roll_back_op(state_before) ; Ok(None) }
-        }
+        match &res {
+            Ok(_) => { ctx.eat_ws(); },
+            Err(_) => ctx.roll_back_op(state_before)
+        };
+        res
     }
 }
 

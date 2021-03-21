@@ -1,7 +1,7 @@
 use crate::parsing::{ParsingContext, ParserErr, Parser};
 
 
-struct AttemptParser<P> {
+pub(crate) struct AttemptParser<P> {
     inside: P,
 }
 
@@ -12,24 +12,26 @@ impl<P> AttemptParser<P> {
 }
 
 impl<P: Parser> Parser for AttemptParser<P> {
-    type Output = P::Output;
-    type PErr = P::PErr;
+    type Output = Option<P::Output>;
+    // The attempt parser itself can never fail, but it might not find the thing
+    // we are trying to parse
+    type PErr = (); 
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        let idx_before = ctx.index;
-        let cursor_before = ctx.cursor;
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
+        let state_before = ctx.current_state();
         
         let res = self.inside.parse(ctx);
-        if res.is_err() {
-            ctx.index = idx_before;
-            ctx.cursor = cursor_before;
+        
+        // If the operation didn't work, just roll back the parser as if nothing had happened
+        match res {
+            Ok(res) => { ctx.eat_ws(); Ok(Some(res)) }
+            Err(_) => { ctx.roll_back_op(state_before) ; Ok(None) }
         }
-        res
     }
 }
 
 #[repr(transparent)]
-struct OptionParser<P> {
+pub(crate) struct OptionParser<P> {
     inside: P,
 }
 
@@ -47,16 +49,18 @@ impl<P: Parser> OptionParser<P> {
 impl ParserErr for () { }
 
 impl<P: Parser> Parser for OptionParser<P> {
+    // The OptionParser never fails, it's just that it might not find 
+    // the thing we optionally want, which would result in an Ok(None)
     type Output = Option<P::Output>;
     type PErr = ();
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
-        let idx_before = ctx.index;
-        let cursor_before = ctx.cursor;
+        let state_before = ctx.current_state();
        
+        // Try to parse it, and if we can't, just pretend it didn't happen
         match self.inside.parse(ctx) {
-            Ok(res) => Ok(Some(res )),
-            Err(_) =>  { ctx.index = idx_before; ctx.cursor = cursor_before; Ok(None) }
+            Ok(res) => { ctx.eat_ws(); Ok(Some(res)) }
+            Err(_) =>  { ctx.roll_back_op(state_before) ; Ok(None) }
         }
     }
 }

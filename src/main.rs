@@ -3,7 +3,8 @@ mod parsing;
 mod tests;
 
 #[allow(unused_imports)]
-use parsing::ParsingContext;
+use parsing::{ParsingContext, Parser};
+use parsing::literals::NumberParser;
 
 
 
@@ -13,6 +14,8 @@ const NO_ARGS_EXIT: i32 = 2;
 const FILE_NOT_FOUND_EXIT: i32 = 3;
 #[allow(dead_code)]
 const EXECUTABLE_AND_MORE: usize = 2;
+
+const NUMBER_PARSER: NumberParser = NumberParser{};
 
 fn main() {
     // let args: Vec<String> = std::env::args().collect();
@@ -32,6 +35,8 @@ fn main() {
 //         }
     //};
 
-    let pctx = ParsingContext::new("123");
+    let mut pctx = ParsingContext::new(" \n  123 asd");
+    println!("{:?}", pctx);
+    let _ = NUMBER_PARSER.parse(&mut pctx);
     println!("{:?}", pctx);
 }

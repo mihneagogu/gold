@@ -28,10 +28,25 @@ impl<'inp> ParsingContext<'inp> {
         self.cursor.chars().peekable().peek().copied()
     }
 
+    #[inline]
+    pub fn current_state(&self) -> (usize, usize, usize, &'inp str) {
+        (self.row, self.col, self. index, self.cursor)
+    }
+
+    #[inline]
+    pub fn roll_back_op(&mut self, (row, col, idx, cursor) : (usize, usize, usize, &'inp str)) {
+        self.row = row;
+        self.col = col;
+        self.index = idx;
+        self.cursor = cursor;
+    }
+
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {
-        Self { row: 1, col: 0, index: 0, input: input.as_ref(), cursor: input.as_ref()}
+        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref()};
+        s.eat_ws();
+        s
     }
 
     pub fn eat_until_ws(&mut self) -> &str {
@@ -41,11 +56,11 @@ impl<'inp> ParsingContext<'inp> {
                 advanced = i;
                 break;
             }
-            self.index += 1;
             if i == self.cursor.len() - 1 {
                advanced = i + 1;
             }
         }
+        self.col += advanced;
         self.index += advanced;
         let until_ws = &self.cursor[..advanced];
         self.cursor = &self.cursor[advanced..];
@@ -56,8 +71,8 @@ impl<'inp> ParsingContext<'inp> {
         let mut non_ws = 0;
         for (i, c) in self.cursor.chars().enumerate() {
              match c {
-                '\n' => { self.row += 1; self.col = 0 }
-                ch if !ch.is_whitespace() => { non_ws = i; self.col += 1; break },
+                '\n' => { self.row += 1; self.col = 1 }
+                ch if !ch.is_whitespace() => { non_ws = i; break },
                 _ => self.col += 1
             }
         }

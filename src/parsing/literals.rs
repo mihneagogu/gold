@@ -28,7 +28,7 @@ impl Parser for NumberParser {
 
         let inp = ctx.eat_until_ws();
         match inp.parse::<i32>() {
-            Ok(n) => Ok(n),
+            Ok(n) => { ctx.eat_ws() ; Ok(n) }
             Err(e) => match e.kind() {
                 IntErrorKind::InvalidDigit => Err(InvalidNumber(ParseNumData(0, 0, inp.to_string()))),
                 IntErrorKind::PosOverflow => Err(NumberParseErr::PosOverflow(ParseNumData(0, 0, inp.to_string()))),

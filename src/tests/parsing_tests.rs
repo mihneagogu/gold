@@ -3,6 +3,7 @@
 mod parsing_tests {
 
     use parsing::literals::NumberParser;
+    use parsing::combinators::OptionParser;
 
     use crate::*;
     use crate::parsing::Parser;
@@ -45,7 +46,28 @@ mod parsing_tests {
     fn empty_number() {
         let np = NumberParser{};
         assert_eq!(&np.parse(&mut ParsingContext::new("")).is_err(), &true, "Can't parse anything from empty string");
+    }
 
+    #[test]
+    fn option_non_number() {
+        let np = NumberParser{};
+        let o = OptionParser::new(np);
+        
+        let mut c = ParsingContext::new("asd");
+
+        assert_eq!(&o.parse(&mut c), &Ok(None), "Option parser is always successful, but might yield a None");
+
+    }
+
+    #[test]
+    fn option_number() {
+        let np = NumberParser{};
+        let o = OptionParser::new(np);
+        
+        let mut c = ParsingContext::new("-345  ");
+
+        assert_eq!(&o.parse(&mut c), &Ok(Some(-345)), "Option parser is always successful, but might yield a None");
+    
     }
 }
 

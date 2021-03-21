@@ -1,12 +1,20 @@
+/// This represents the whole parsing module, which contains the context, 
+/// and the parser trait and some parsing utilities. The parser combinator
+/// themselves are in different files from this module
+
 use std::fs;
 use std::collections::HashSet;
 
 pub mod literals;
 pub mod combinators;
 
+// Empty for now
 pub trait ParserErr {}
 
 
+/// This is a struct which represents the whole parsing context,
+/// which takes care of the positions in the input where we are currently at
+/// (row, column, index in the input, and a cursor)
 #[derive(Debug)]
 pub struct ParsingContext<'inp> {
     pub row: usize,
@@ -18,6 +26,7 @@ pub struct ParsingContext<'inp> {
 }
 
 pub trait Parser {
+    // TODO(mike): Probably need to add require a label name
     type Output;
     type PErr: ParserErr;
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
@@ -25,16 +34,20 @@ pub trait Parser {
 
 impl<'inp> ParsingContext<'inp> {
 
+    /// Peek the cursor and return the first character, if any
     #[allow(dead_code)]
     pub fn peek_char(&self) -> Option<char> {
         self.cursor.chars().peekable().peek().copied()
     }
 
+    /// What is the row, column, index where the cursor is at the moment?
     #[inline]
     pub fn current_state(&self) -> (usize, usize, usize, &'inp str) {
         (self.row, self.col, self. index, self.cursor)
     }
 
+    /// Roll back the parser state to that position (which is usually before an
+    /// operation which failed was done). Used by the attempt parser to undo operations
     #[inline]
     pub fn roll_back_op(&mut self, (row, col, idx, cursor) : (usize, usize, usize, &'inp str)) {
         self.row = row;
@@ -46,13 +59,13 @@ impl<'inp> ParsingContext<'inp> {
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {
-        // @MAYBE(mike) we could use lazy_static! here but we would like to avoid the unnecessary dependencies
         let keywords: HashSet<&'static str> = vec!["def", "for", "if", "else"].into_iter().collect();
         let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords };
         s.eat_ws();
         s
     }
 
+    /// Eat n characters from the input and spit them back, if there are enough in the input
     pub fn eat_many(&mut self, n: usize) -> Option<&str> {
         assert_eq!(n != 0, true, "Cannot eat 0 chars");
         if self.cursor.len() < n {
@@ -75,6 +88,7 @@ impl<'inp> ParsingContext<'inp> {
         Some(eaten)
     }
 
+    /// Eat everything until whitespace (or end of input) and spit it back
     pub fn eat_until_ws(&mut self) -> &str {
         let mut advanced = 0;
         for (i, c) in self.cursor.chars().enumerate() {
@@ -93,6 +107,7 @@ impl<'inp> ParsingContext<'inp> {
         until_ws
     }
 
+    /// Discard all whitespace. Returns self for chaining commodity
     pub fn eat_ws(&mut self) -> &mut Self {
         let mut non_ws = 0;
         for (i, c) in self.cursor.chars().enumerate() {

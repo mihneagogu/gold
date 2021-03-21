@@ -4,6 +4,13 @@ use crate::parsing::{ParsingContext, ParserErr, Parser};
 // can have its own label like this:
 // "Expected one of <label1>, <label2> ... "
 
+/// Alternative parser. Similar to
+/// parser1 <|> parser2 <|> parser3.
+/// This means: perform parser1, if successful exit,  otherwise parser2.
+/// If parser2 is successful, exit, else perform parser3.
+/// Disclaimer: If any parser consumes input, it won't be rolled back by default
+/// If we do want the input to be rolled back, we use an attempt() arround the parser
+/// (aka AttemptParser::new)
 pub(crate) struct AlternativeParser<'ps, O, E> {
     variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>
 }
@@ -20,6 +27,7 @@ impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for Alterna
     type PErr = ();
     fn parse (&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = None;
+        // Perform all parsers until we succeed or we run out of things to do
         for p in &self.variants {
             let r = p.parse(ctx);
             println!("parser from attempt: {:?}", r);
@@ -40,16 +48,20 @@ impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for Alterna
 
 
 
+/// A parser which attempts the parser inside, rolling back the input
+/// if it fails.
 #[derive(Debug)]
 pub(crate) struct AttemptParser<P> {
     inside: P,
 }
 
+/// Parses a string exactly equal to EXPECTED (beware, case-sensitive)
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct StringParser {
     expected: &'static str
 }
 
+/// Parses exactly the char inside
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct CharParser(char);
 
@@ -150,6 +162,10 @@ impl<P: Parser> Parser for AttemptParser<P> {
     }
 }
 
+/// Possibly parses what INSIDE parses, returning if it was successful or not.
+/// If INSIDE eats input but fails, the parser will rollback the operation.
+/// OptionParser never fails, but it might yield an Ok(None), in which case 
+/// we know that the operation of INSIDE was not successful.
 #[derive(Debug)]
 #[repr(transparent)]
 pub(crate) struct OptionParser<P> {

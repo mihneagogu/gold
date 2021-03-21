@@ -1,8 +1,44 @@
 use crate::parsing::{ParsingContext, ParserErr, Parser};
 
 
+#[derive(Debug)]
 pub(crate) struct AttemptParser<P> {
     inside: P,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub(crate) struct StringParser {
+    expected: &'static str
+}
+
+impl StringParser {
+    pub fn new(expected: &'static str) -> Self {
+        Self { expected }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum StringParseErr {
+    StringMismatch(&'static str, String),
+    NotEnoughInput // We couldn't read that many chars, but we have STRING
+}
+
+impl ParserErr for StringParseErr {}
+
+impl Parser for StringParser {
+    type Output = &'static str;
+    type PErr = StringParseErr; // Char mismatch err
+    
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let inp = ctx.eat_many(self.expected.len());
+        let res = match inp {
+            Some(i) if i == self.expected => Ok(self.expected),
+            Some(i) => Err(StringParseErr::StringMismatch(self.expected, i.to_string())),
+            None => Err(StringParseErr::NotEnoughInput)
+        };
+        ctx.eat_ws();
+        res
+    }
 }
 
 impl<P> AttemptParser<P> {
@@ -30,6 +66,7 @@ impl<P: Parser> Parser for AttemptParser<P> {
     }
 }
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub(crate) struct OptionParser<P> {
     inside: P,

@@ -1,4 +1,5 @@
 use std::fs;
+use std::collections::HashSet;
 
 pub mod literals;
 pub mod combinators;
@@ -13,6 +14,7 @@ pub struct ParsingContext<'inp> {
     pub index: usize, // The place where we are at in the input
     pub input: &'inp str, // The whole input
     pub cursor: &'inp str, // Where we are currently in the input
+    keywords: HashSet<&'static str>
 }
 
 pub trait Parser {
@@ -44,9 +46,33 @@ impl<'inp> ParsingContext<'inp> {
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {
-        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref()};
+        // @MAYBE(mike) we could use lazy_static! here but we would like to avoid the unnecessary dependencies
+        let keywords: HashSet<&'static str> = vec!["def", "for", "if", "else"].into_iter().collect();
+        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords };
         s.eat_ws();
         s
+    }
+
+    pub fn eat_many(&mut self, n: usize) -> Option<&str> {
+        assert_eq!(n != 0, true, "Cannot eat 0 chars");
+        if self.cursor.len() < n {
+            return None;
+        }         
+
+        for (i, c) in self.cursor.chars().enumerate() {
+            if i == n {
+                break;
+            }
+            if c == '\n' {
+                self.row += 1; self.col = 1;
+            } else {
+                self.col += 1;
+            }
+        }
+        self.index += n;
+        let eaten = &self.cursor[.. n];
+        self.cursor = &self.cursor[n ..];
+        Some(eaten)
     }
 
     pub fn eat_until_ws(&mut self) -> &str {

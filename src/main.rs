@@ -3,6 +3,7 @@ mod parsing;
 mod tests;
 
 #[allow(unused_imports)]
+use parsing::combinators::{AttemptParser, OptionParser, StringParser};
 use parsing::{ParsingContext, Parser};
 use parsing::literals::NumberParser;
 
@@ -35,8 +36,11 @@ fn main() {
 //         }
     //};
 
-    let mut pctx = ParsingContext::new(" \n  123 asd");
+    let mut pctx = ParsingContext::new(" \n  123 as");
     println!("{:?}", pctx);
-    let _ = NUMBER_PARSER.parse(&mut pctx);
+    let res = &NUMBER_PARSER.parse(&mut pctx);
+    println!("res {:?}", res);
+    let res = OptionParser::new(StringParser::new("y")).parse(&mut pctx);
+    println!("res {:?}", res);
     println!("{:?}", pctx);
 }

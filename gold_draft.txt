@@ -1,0 +1,178 @@
+We want a language which is compiled. non-GCed, but also has some options and procedures for automatic (non-GCed) memory allocation.
+Essentially, we want a combination between Jai, C and Rust, more or less. We would like something as powerful as C and Rust,
+which doesn't contain all of the constraints (albeit sane) of Rust, and similar to C++ but with move-by-default semantics, unlike C++.
+The type system should also be able to handle implicit function application, the absolute magic of scala.
+
+Example of implicits for integers:
+implicit fun itos(implicit n: i32): String = String::from(n);
+
+val str: String = 123; // This will implicity be translated to:
+val str: String = itos(123);
+
+We also want a clear distinction between String and string slices, which Rust does really well.
+Becuase our type system does not make a distinctioned between & and &mut, we could mistakenly treat string slices as mutable,
+but generally we should use &StrSlice for immutable strings, and we can coerce String -> &StrSlice
+
+let imm: &StrSlice = "asdasd";
+let s = String::from(imm);
+let others = s.as_slice();
+
+We use interfaces (which can require function definitions, field definitions or associated types definition) , polymorphism
+
+pack Struct {
+	name: i32,
+	op: OtherPack, // Owned OtherPack, can free it
+	os: &OtherStruct,  // borrow of OtherStruct, we cannot free it unless we do an unsafe cast
+	ptr_otherstruct: *OtherStruct // raw pointer, cannot free directly, this might not necessarily point to heap allocated data, it might be stack allocated or just garbage memory
+	allocation: Box<OtherStruct>, // heap allocated OtherStruct, freed by calling destructor of Box, which should free the allocation and then call drop on OtherStruct
+};
+
+// Destroying a Pack calls destroy on every field in reverse order
+
+// Transmuting from & to * is unsafe, transmuting between two * is also unsafe
+
+impls Struct {
+	// Methods for Struct
+};
+
+/* Arrays should be first-class citizens.
+Our language should also have type inference
+
+*/
+
+assoc Add::plus with + // <- association of method of trait with operator
+assoc Index::index with [ ] // <- association of method of trait with operator
+
+// "as" is special keyword for Cast::as
+
+fun execute<T>(owned_something: T) where T: Execute {
+	t.execute();
+	// drop(t) called at the end.
+}
+
+// we can call execute_borrow(&sth) where Sth has the required type
+// or
+// unsafe { execute_borrow(raw &sth) } when we don't want the compiler to check the constraints or anything of the sort. This is useful for overloading addition for example
+
+fun execute_borrow<T>(borrowed_something: &T) where T: Execute {
+	borrowed_something.execute();
+	// No drop here, we are using a reference
+}
+
+// TODO: Possibly artibrary execution of code at compile time which yields a result that can be accessed at runtime, the way Jai does it?
+// Compile time tasks can be executed in parallel, possibly, and we warn users that they cannot rely on any interference between compile time tasks.
+// What if the user actually makes compile_time code have IO? <- might need to run one by one. Might need an actual interpreter for this
+
+
+// This is always called at compile time
+(#compile_time) ProjectBuild fun build_options() {
+	let o_level = OptimisationLevel::O2;
+	let build_files = ["here.tx", "there.tx"];
+
+	return ProjectBuild { level: o_level, files: build_files };
+	// maybe? return ProjectBuild { o_level, build_files };
+}
+
+
+fun main(argc: i32, argv: **char) {
+	/* Heap-allocated pointer to int. Gets destroyed at end of scope automatically, unless moved into a function or
+	another variable.
+	*/
+	let i: Box<i32> = Box::new(123); 
+	/* Same thing, except j does not get deallocated at end of scope. Useful when you want to give out a reference 
+	to something, but then want that thing to dellocate the pointer using the reference using an unsafe cast.
+	*/
+	let j: -Box<i32> = Box::new(123); 
+	defer(drop(j)); // Defer the operation of dropping to end of scope explicity. Omitting this would potentially leak memory if no other resource frees j
+
+	let b: Box<bool> = Box::new(true);
+	/* If the line below wouldn't be commented out, hmap2 would give us a compiler error since we would be using references to moved data */
+	// let hmap: HashMap<i32, Box<i32>> = HashMap::from( (1, i), (2, j) ); // Move both i and j into the hashmap
+
+	let hmap2: HashMap<i32, &i32>> = HashMap::from( (1, &i), (2, &j) );
+	// casting from &T to *T is done like this: unsafe { &t as * _ };
+
+	// Generic functions, packs etc use the same thing as C++/Rust.
+	// We also want to allow raw templating without the type guarantees
+
+
+	// drop order would still be drop b, drop j, drop i
+}
+
+fun other<T>(T t) where T: !Copy {
+	// We have an owned t. 
+	let moved = t; // Move it here
+
+	let other = t ; // <- Compiler error: Use of moved t
+}
+
+fun other_nondrop<T>(T t) where T: !Copy {
+	// We have an owned t. 
+	let moved: -T = t; // Move it here
+
+	// This will leak memory, we are not dropping the t
+}
+
+fun other_usecopy<C>(C c) where C: Copy {
+	let a1 = c; // Just copy c's bits into a1
+	let a2 = c; // Just copy c's bits into a2
+	// The locations of a1 and a2 being stored are different
+}
+
+
+// An implementation for Box<T> would be like this:
+
+pack Box<T> {
+	ptr: *T
+}
+
+impls Box<T> {
+
+	public fun new(T: t) {
+	// We require the user to move T in here, but we do not actually free it in the standard way
+	// We just copy its bits onto the allocation, which will be freed when the box gets freed
+		let leaking: -T = t; 
+		let alloc: *u8 = alloc(sizeof<T>(), alignment));
+		// Do not do anything with the T, just write its bits onto the allocated address
+		unsafe {
+			let alloc: *T = { alloc as _ } ; 
+			ptr::write(alloc, &t as *T as *u8, sizeof<T>()); 
+		}
+	}
+
+}
+
+def Deref for Box<T> {
+	type Target = &T;
+
+	public fun deref(&self): &T {
+		unsafe { self.ptr as &T };
+	}
+}
+
+def Destroy for Box<T> {
+	public fun drop() {
+		unsafe { dealloc(ptr as *u8) };
+	}
+}
+
+And implementation for non-atomic Reference counting:
+
+// Same way of allocating and everything as a box
+pack Rc<T> {
+	ptr: *T,
+	count: u32
+};
+
+alternatively, if we want to use box, then we do this:
+
+The minus_attrs will tell the compiler that we are expecting a - on a field, i.e we might no drop it, in this case for a good reason,
+since we do not want to free the box until the last reference is gone
+#feature: (minus_attrs)
+pack RcBox<T> {
+	ptr: -Box<T>,
+	count: u32
+};
+
+Also, we would like to use some sort of implicits similar to Scala's so that we can use extension methods freely.
+It would be a very nice addition to the type system

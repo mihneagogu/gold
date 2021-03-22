@@ -36,8 +36,8 @@ fn main() {
 //         }
     //};
     let np = NUMBER_PARSER;
-    let p = np.discard_then(StringParser::new("asd"));
-    let mut pctx = ParsingContext::new("   \n   \n 123 \n asd  ");
+    let p = np.discard_then(StringParser::new("def"));
+    let mut pctx = ParsingContext::new("   \n   \n 123 \n def  ");
 
     println!("res: {:?}", p.parse(&mut pctx));
     println!("ctx: {:?}", &pctx);

@@ -41,4 +41,5 @@ impl Parser for NumberParser {
      
 }
 
+pub(crate) struct IdentParser {}
 

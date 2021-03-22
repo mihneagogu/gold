@@ -102,5 +102,21 @@ mod parsing_tests {
 
         assert_eq!(ap.parse(&mut pctx).is_err(), true);
     }
+
+    #[test]
+    fn parsing_keywords_works() {
+        // This one should succeed because it is parsing "def", which is a keyword
+        let mut ctx_succ = ParsingContext::new(" \n  def");
+        // This one should fail because we are trying to parse the "def" keyword,
+        // but we actually get the "def_" identifier
+        let mut ctx_fail = ParsingContext::new(" \n  def_");
+        let sp = StringParser::new("def");
+
+        assert_eq!(sp.parse(&mut ctx_succ).is_ok(), true);
+        assert_eq!(sp.parse(&mut ctx_fail).is_err(), true);
+
+    }
+
+    
 }
 

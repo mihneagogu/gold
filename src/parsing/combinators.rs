@@ -26,7 +26,7 @@ impl<P: Parser> Parser for ManyParser<P> {
     // The ManyParser always succeeds, since it might simply parse 0 instances
     // of inside
     type PErr = (); 
-    
+
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = Vec::new();
         loop {
@@ -83,6 +83,43 @@ impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for Alterna
 }
 
 
+#[derive(Debug)]
+pub(crate) struct StringParser {
+    expected: &'static str
+}
+
+impl StringParser {
+    pub fn new(expected: &'static str) -> Self {
+        Self { expected }
+    }
+}
+
+impl Parser for StringParser {
+    type Output = &'static str;
+    type PErr = StringParseErr;
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let res = AttemptParser::new(RawStringParser::new(self.expected)).parse(ctx);
+        if res.is_ok() {
+            if ctx.keywords.contains(self.expected) {
+                if let Some(next) = ctx.peek_char() {
+                    if next.is_alphanumeric() || next == '_' {
+                        // We wanted an keyword, but we actually found an identifier (for example
+                        // bools instead of the bool keyword)
+                        let mut found = self.expected.to_string();
+                        found.push(next);
+                        return Err(StringParseErr::StringMismatch(self.expected, found));
+                    } else {
+                        ctx.eat_ws();
+                    }
+                }
+            } else {
+                ctx.eat_ws();
+            }
+        }
+        res
+    }
+
+}
 
 
 /// A parser which attempts the parser inside, rolling back the input
@@ -92,9 +129,9 @@ pub(crate) struct AttemptParser<P> {
     inside: P,
 }
 
-/// Parses a string exactly equal to EXPECTED (beware, case-sensitive)
+/// Parses a string exactly equal to EXPECTED and DOES NOT consume whitespace after (beware, case-sensitive)
 #[derive(Clone, PartialEq, Debug)]
-pub(crate) struct StringParser {
+pub(crate) struct RawStringParser {
     expected: &'static str
 }
 
@@ -131,7 +168,7 @@ impl Parser for CharParser {
                 };
                 ctx.index += 1;
                 if ch == '\n' {
-                   ctx.row += 1; ctx.col = 1;
+                    ctx.row += 1; ctx.col = 1;
                 } else { 
                     ctx.col += 1;
                 }
@@ -141,7 +178,7 @@ impl Parser for CharParser {
     }
 }
 
-impl StringParser {
+impl RawStringParser {
     pub fn new(expected: &'static str) -> Self {
         Self { expected }
     }
@@ -155,10 +192,10 @@ pub(crate) enum StringParseErr {
 
 impl ParserErr for StringParseErr {}
 
-impl Parser for StringParser {
+impl Parser for RawStringParser {
     type Output = &'static str;
     type PErr = StringParseErr; // Char mismatch err
-    
+
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let inp = ctx.eat_many(self.expected.len());
         let res = match inp {
@@ -166,7 +203,7 @@ impl Parser for StringParser {
             Some(i) => Err(StringParseErr::StringMismatch(self.expected, i.to_string())),
             None => Err(StringParseErr::NotEnoughInput)
         };
-        ctx.eat_ws();
+        // ctx.eat_ws();
         res
     }
 }
@@ -187,9 +224,9 @@ impl<P: Parser> Parser for AttemptParser<P> {
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let state_before = ctx.current_state();
-        
+
         let res = self.inside.parse(ctx);
-        
+
         // If the operation didn't work, just roll back the parser as if nothing had happened
         match &res {
             Ok(_) => { ctx.eat_ws(); },
@@ -230,7 +267,7 @@ impl<P: Parser> Parser for OptionParser<P> {
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
         let state_before = ctx.current_state();
-       
+
         // Try to parse it, and if we can't, just pretend it didn't happen
         match self.inside.parse(ctx) {
             Ok(res) => { ctx.eat_ws(); Ok(Some(res)) }

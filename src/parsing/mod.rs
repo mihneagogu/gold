@@ -1,6 +1,17 @@
 /// This represents the whole parsing module, which contains the context, 
 /// and the parser trait and some parsing utilities. The parser combinator
 /// themselves are in different files from this module
+/// This parsing framework has most of its inspiration from Parsley Scala library
+/// (https://github.com/j-mie6/Parsley). While it is popular to create the parsing machine
+/// at compile-time via a state machine, we opt for a handwritten parser which operates at runtime
+/// (since realistically parsing is never the longest part of a compiler and it allows us
+/// to have perfect control over the erorr messages we give out).
+/// There are however a few distinctions between parsley and this parsing framework, which
+/// are stated in the combinators. Also, if you are familiar with parsing combinators from
+/// functional languages, this parsing framework will feel very at home, albeit more verbose.
+/// The parsing framework itself can be written as a proc macro with custom instructions 
+/// but that would be a library on its own. What we are interested in is precisely to parse
+/// correctly and give good errors, but exactly how we parse the source code.
 
 use std::fs;
 use std::collections::HashSet;
@@ -25,11 +36,54 @@ pub struct ParsingContext<'inp> {
     keywords: HashSet<&'static str>
 }
 
+#[derive(Debug)]
+pub struct DiscardThenParser<F, S> {
+    first: F,
+    second: S
+}
+
+impl<F, S> DiscardThenParser<F, S> {
+    pub fn new(first: F, second: S) -> Self {
+        Self { first, second }
+    }
+}
+
+#[derive(Debug)]
+pub enum DiscardThenErr<F, S> 
+where F: ParserErr, S: ParserErr
+{
+    FirstError(F),
+    SecondError(S)
+}
+
+impl<F: ParserErr, S: ParserErr> ParserErr for DiscardThenErr<F, S> {}
+
+impl<F: Parser, S: Parser> Parser for DiscardThenParser<F, S> {
+    type Output = S::Output;
+    type PErr = DiscardThenErr<F::PErr, S::PErr>;
+
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        if let Err(e) = self.first.parse(ctx) {
+            return Err(DiscardThenErr::FirstError(e));
+        }
+        // We discard res_one if it is successful
+        match self.second.parse(ctx) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(DiscardThenErr::SecondError(e))
+        }
+    }
+}
+
 pub trait Parser {
     // TODO(mike): Probably need to add require a label name
     type Output;
     type PErr: ParserErr;
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
+    fn discard_then<P: Parser>(self, snd: P) -> DiscardThenParser<Self, P> 
+        where Self: Sized
+    {
+        DiscardThenParser::new(self, snd)
+    }
 }
 
 impl<'inp> ParsingContext<'inp> {
@@ -110,13 +164,16 @@ impl<'inp> ParsingContext<'inp> {
     /// Discard all whitespace. Returns self for chaining commodity
     pub fn eat_ws(&mut self) -> &mut Self {
         let mut non_ws = 0;
+        let mut found = false;
         for (i, c) in self.cursor.chars().enumerate() {
+            non_ws = i;
              match c {
                 '\n' => { self.row += 1; self.col = 1 }
-                ch if !ch.is_whitespace() => { non_ws = i; break },
-                _ => self.col += 1
+                ch if !ch.is_whitespace() => { found = true; break }
+                _ => {  self.col += 1 }
             }
         }
+        let non_ws = if found || non_ws == 0 { non_ws } else { non_ws + 1};
         self.cursor = &self.cursor[non_ws..];
         self.index = self.index + non_ws;
         self

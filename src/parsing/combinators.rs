@@ -4,6 +4,43 @@ use crate::parsing::{ParsingContext, ParserErr, Parser};
 // can have its own label like this:
 // "Expected one of <label1>, <label2> ... "
 
+/// This parser parses 0 or more instances of INSIDE.
+/// This is done by repeatedly applying the parser inside. When it fails, however,
+/// it will not consume input (since we might be parsing 0 instances of INSIDE).
+/// This parser is slightly different from equivalent versions of other combinators from other
+/// parsing libraries.
+/// Take Parsley Scala for example: 
+/// consider the parser (the <~> takes two parsers, applies them and stores the result in a tuple):
+/// val asd: Parser[(List[String], String)] = many(stringLift("123")) <~> stringLift("12")
+/// if you run the parser on this input: "12"
+/// asd.runParser("12") it will tell you that it was expecting "123" but found 12. 
+/// It started eating the '1' and '2' since it was partially matching the very first parser.
+/// However, ManyParser<P> in this case will just return an empty vec, and then a "12". 
+/// It would find 0 instances of "123" but it will find afterwards the "12" we wanted it to find.
+pub(crate) struct ManyParser<P> {
+    inside: P
+}
+
+impl<P: Parser> Parser for ManyParser<P> {
+    type Output = Vec<P::Output>;
+    // The ManyParser always succeeds, since it might simply parse 0 instances
+    // of inside
+    type PErr = (); 
+    
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let mut res = Vec::new();
+        loop {
+            // @MAYBE(mike): If the parsing fails just rollback and exit ?
+            let before = ctx.current_state(); 
+            match self.inside.parse(ctx) {
+                Ok(r) => res.push(r),
+                Err(_) => { ctx.roll_back_op(before); break; }
+            }
+        }
+        Ok(res)
+    }
+}
+
 /// Alternative parser. Similar to
 /// parser1 <|> parser2 <|> parser3.
 /// This means: perform parser1, if successful exit,  otherwise parser2.

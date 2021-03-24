@@ -74,8 +74,8 @@ mod parsing_tests {
     fn alternative_parser_test() {
         // Tests whether the alternative correctly parses its variants
         let mut pctx = ParsingContext::new(" \n  123 as");
-        // Use attempt for this one since we know it will never parse asd first
-        let asd = AttemptParser::new(StringParser::new("asd"));
+        // Use StringParser with attempt for this one since we know it will never parse asd first
+        let asd = StringParser::new("asd");
         // This should succeed since we didn't eat any input with the first parser
         let one = StringParser::new("123");
 
@@ -92,9 +92,10 @@ mod parsing_tests {
         let mut pctx = ParsingContext::new(" \n  123 as");
         // This will eat part of the input, which means the parser ONE won't match anymore, since
         // we ate the "123" in the string with the ASD parser
-        let asd = StringParser::new("asd");
-        // This should succeed since we didn't eat any input with the first parser
-        let one = StringParser::new("123");
+        let asd = RawStringParser::new("asd");
+        pctx.eat_ws();
+        // This won't succeed since we ate "123"
+        let one = RawStringParser::new("123");
 
         let ap = vec![&asd as &dyn Parser<Output = &'static str, PErr = StringParseErr>, 
         &one as &dyn Parser<Output = &'static str, PErr = StringParseErr>];

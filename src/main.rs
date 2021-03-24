@@ -36,11 +36,10 @@ fn main() {
 //         }
     //};
     let np = NUMBER_PARSER;
-    let p = np.discard_then(StringParser::new("def"));
-    let mut pctx = ParsingContext::new("   \n   \n 123 \n def  ");
+    let p = np.discard_then(StringParser::new("def")).discard_then(StringParser::new("boogie"));
+    let mut pctx = ParsingContext::new("   \n   \n 123 \n def boogie  ");
 
     println!("res: {:?}", p.parse(&mut pctx));
     println!("ctx: {:?}", &pctx);
-    println!("len: {}", &pctx.input.len())
-
+    println!("len: {}", &pctx.input.len());
 }

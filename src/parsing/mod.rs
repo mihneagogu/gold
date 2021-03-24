@@ -37,6 +37,58 @@ pub struct ParsingContext<'inp> {
 }
 
 #[derive(Debug)]
+struct DoubleParser<F, S> {
+    first: F,
+    second: S
+}
+
+impl<F, S> DoubleParser<F, S> {
+    fn new(first: F, second: S) -> Self {
+        Self { first, second }
+    }
+}
+
+impl<F: Parser, S: Parser> Parser for DoubleParser<F, S> {
+    type Output = (F::Output, S::Output);
+    type PErr = DoubleParserErr<F::PErr, S::PErr>;
+
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let r1;
+        match self.first.parse(ctx) {
+            Err(e) => return Err(DoubleParserErr::FirstError(e)),
+            Ok(r) => { r1 = r; }
+        };
+        match self.second.parse(ctx) {
+            Ok(r2) => Ok((r1, r2)),
+            Err(e) => Err(DoubleParserErr::SecondError(e))
+        }
+    }
+}
+
+// TODO(mike): Refactor common functionality between ThenDiscard and DiscardThen
+// and combine them into one
+#[derive(Debug)]
+pub struct ThenDiscardParser<F, S> {
+    first: F,
+    second: S
+}
+
+impl<F: Parser, S: Parser> Parser for ThenDiscardParser<F, S> {
+    type Output = F::Output;
+    type PErr = DoubleParserErr<F::PErr, S::PErr>;
+
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        DoubleParser::new(&self.first, &self.second).parse(ctx).map(|(fst, _)| fst)
+    }
+}
+
+impl<F, S> ThenDiscardParser<F, S> {
+    pub fn new(first: F, second: S) -> Self {
+        Self { first, second }
+    }
+}
+
+#[derive(Debug)]
 pub struct DiscardThenParser<F, S> {
     first: F,
     second: S
@@ -49,28 +101,31 @@ impl<F, S> DiscardThenParser<F, S> {
 }
 
 #[derive(Debug)]
-pub enum DiscardThenErr<F, S> 
+pub enum DoubleParserErr<F, S> 
 where F: ParserErr, S: ParserErr
 {
     FirstError(F),
     SecondError(S)
 }
 
-impl<F: ParserErr, S: ParserErr> ParserErr for DiscardThenErr<F, S> {}
+impl<F: ParserErr, S: ParserErr> ParserErr for DoubleParserErr<F, S> {}
 
 impl<F: Parser, S: Parser> Parser for DiscardThenParser<F, S> {
     type Output = S::Output;
-    type PErr = DiscardThenErr<F::PErr, S::PErr>;
+    type PErr = DoubleParserErr<F::PErr, S::PErr>;
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        if let Err(e) = self.first.parse(ctx) {
-            return Err(DiscardThenErr::FirstError(e));
-        }
-        // We discard res_one if it is successful
-        match self.second.parse(ctx) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(DiscardThenErr::SecondError(e))
-        }
+        DoubleParser::new(&self.first, &self.second).parse(ctx).map(|(_, snd)| snd)
+    }
+
+}
+
+impl<'a, E: ParserErr> ParserErr for &'a E {}
+impl<'a, T: Parser> Parser for &'a T {
+    type Output = T::Output;
+    type PErr = T::PErr;
+    fn parse(&self, ctx: &mut ParsingContext) -> Result<T::Output, T::PErr> {
+        T::parse(self, ctx)
     }
 }
 
@@ -83,6 +138,12 @@ pub trait Parser {
         where Self: Sized
     {
         DiscardThenParser::new(self, snd)
+    }
+
+    fn then_discard<P: Parser>(self, snd: P) -> ThenDiscardParser<Self, P>
+        where Self: Sized
+    {
+        ThenDiscardParser::new(self, snd)
     }
 }
 

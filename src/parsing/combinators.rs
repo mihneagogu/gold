@@ -58,7 +58,7 @@ impl<'ps, O, E> AlternativeParser<'ps, O, E> {
     }
 }
 
-impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for AlternativeParser<'ps, O, E> {
+impl<'ps, O, E: ParserErr> Parser for AlternativeParser<'ps, O, E> {
     type Output = O;
     // TODO(mike): This isn't right, we need a custom error type.
     type PErr = ();
@@ -67,7 +67,6 @@ impl<'ps, O: std::fmt::Debug, E: ParserErr + std::fmt::Debug> Parser for Alterna
         // Perform all parsers until we succeed or we run out of things to do
         for p in &self.variants {
             let r = p.parse(ctx);
-            println!("parser from attempt: {:?}", r);
             match r {
                 Ok(o) => { res = Some(o); break; }
                 _ => ()
@@ -172,6 +171,7 @@ impl Parser for CharParser {
                 } else { 
                     ctx.col += 1;
                 }
+                if res.is_ok() { ctx.eat_ws(); }
                 res
             }
         }
@@ -229,11 +229,12 @@ impl<P: Parser> Parser for AttemptParser<P> {
 
         // If the operation didn't work, just roll back the parser as if nothing had happened
         match &res {
-            Ok(_) => { ctx.eat_ws(); },
+            Ok(_) => (),
             Err(_) => ctx.roll_back_op(state_before)
         };
         res
     }
+
 }
 
 /// Possibly parses what INSIDE parses, returning if it was successful or not.

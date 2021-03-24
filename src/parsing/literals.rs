@@ -16,7 +16,7 @@ pub(crate) enum NumberParseErr {
 
 impl ParserErr for NumberParseErr {}
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct NumberParser {}
 
 #[derive(Debug, Clone, Copy)]

@@ -15,25 +15,59 @@
 
 use std::fs;
 use std::collections::HashSet;
+use std::cell::UnsafeCell;
 
 pub mod literals;
 pub mod combinators;
+pub mod types;
+use combinators::{StringParseErr, StringParser};
+
+use self::combinators::AlternativeParser;
 
 // Empty for now
-pub trait ParserErr {}
+pub(crate) trait ParserErr {}
 
 
 /// This is a struct which represents the whole parsing context,
 /// which takes care of the positions in the input where we are currently at
 /// (row, column, index in the input, and a cursor)
 #[derive(Debug)]
-pub struct ParsingContext<'inp> {
+pub(crate) struct ParsingContext<'inp> {
     pub row: usize,
     pub col: usize,
     pub index: usize, // The place where we are at in the input
     pub input: &'inp str, // The whole input
     pub cursor: &'inp str, // Where we are currently in the input
-    keywords: HashSet<&'static str>
+    keywords: HashSet<&'static str>,
+    pub baggage: ParsingBaggage<'inp>
+}
+
+#[derive(Debug)]
+pub(crate) struct ParsingBaggage<'pctx> {
+    // The order of the base types matter, since the base type parser will be
+    // in the order of base_types.
+    pub base_types: Vec<&'static str>,
+    pub base_type_string_parers: Vec<StringParser>,
+    pub base_type_parser: AlternativeParser<'pctx, &'static str, StringParseErr>,
+}
+
+impl<'pctx> ParsingBaggage<'pctx> {
+    fn init() -> Self {
+        let base_types = vec!["i128", "i64", "i32", "i16", "i8", "u128", "u64", "u32", "u16", "u8", "bool", "()", "f64", "f32"]; 
+        let ps: Vec<_> = base_types.clone().into_iter().map(|t| StringParser::new(t)).collect();
+        let ps: UnsafeCell<Vec<_>> = ps.into();
+
+        // SAFETY: We will only ever use this immutably, we simply want to refer to the parsers.
+        // We also know that the Vec<StringParser> we have will live exactly as long as the
+        // base_types, until the end of parsing
+        let parsers: Vec<_> = unsafe {
+            (&*ps.get()).iter().map(|p| p as &dyn Parser<Output = &'static str, PErr = StringParseErr>).collect()
+        };
+        let ap = AlternativeParser::new(parsers);
+
+        let ps = ps.into_inner();
+        Self { base_types, base_type_string_parers: ps, base_type_parser: ap }
+    }
 }
 
 #[derive(Debug)]
@@ -105,7 +139,7 @@ impl<F, S> DiscardThenParser<F, S> {
 }
 
 #[derive(Debug)]
-pub enum DoubleParserErr<F, S> 
+pub(crate) enum DoubleParserErr<F, S> 
 where F: ParserErr, S: ParserErr
 {
     FirstError(F),
@@ -133,7 +167,7 @@ impl<'a, T: Parser> Parser for &'a T {
     }
 }
 
-pub trait Parser {
+pub(crate) trait Parser: std::fmt::Debug {
     // TODO(mike): Probably need to add require a label name
     type Output;
     type PErr: ParserErr;
@@ -145,7 +179,7 @@ pub trait Parser {
     }
 
     /// Runs the parser on given input. Useful for small-scale testing
-    fn run_praser(&self, inp: &str) -> Result<Self::Output, Self::PErr> {
+    fn run_parser(&self, inp: &str) -> Result<Self::Output, Self::PErr> {
         let mut ctx = ParsingContext::new(inp);
         self.parse(&mut ctx)
     }
@@ -188,8 +222,10 @@ impl<'inp> ParsingContext<'inp> {
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {
-        let keywords: HashSet<&'static str> = vec!["def", "for", "if", "else"].into_iter().collect();
-        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords };
+        let kw = vec!["for", "def", "if", "else", "bool", "()", "f32", "f64","i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "&StaticString"];
+        let baggage = ParsingBaggage::init();
+        let keywords: HashSet<&'static str> = kw.into_iter().collect();
+        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords, baggage };
         s.eat_ws();
         s
     }

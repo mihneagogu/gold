@@ -7,6 +7,7 @@ mod tests;
 use parsing::combinators::*;
 use parsing::{Parser, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
+use parsing::types::PrimitiveType;
 
 
 
@@ -36,14 +37,9 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let ip = IdentParser{};
-    println!("{:?}", ip.run_praser("____"));
-    println!("{:?}", ip.run_praser("asd"));
-    println!("{:?}", ip.run_praser("3asd"));
-    println!("{:?}", ip.run_praser("  def"));
-    println!("{:?}", ip.run_praser("__def__ "));
-    let mut s = String::from("__def__");
-    let c: char = char::from_u32(0xd8342).unwrap();
-    s.push(c);
-    println!("{:?}", ip.run_praser(&s));
+    let pt = PrimitiveType{};
+    println!("{:?}", &pt.run_parser("  u81 \n"));
+    println!("{:?}", &pt.run_parser("\n u8"));
+    println!("{:?}", &pt.run_parser("i8       "));
+
 }

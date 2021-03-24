@@ -17,6 +17,7 @@ use crate::parsing::{ParsingContext, ParserErr, Parser};
 /// It started eating the '1' and '2' since it was partially matching the very first parser.
 /// However, ManyParser<P> in this case will just return an empty vec, and then a "12". 
 /// It would find 0 instances of "123" but it will find afterwards the "12" we wanted it to find.
+#[derive(Debug)]
 pub(crate) struct ManyParser<P> {
     inside: P
 }
@@ -48,17 +49,23 @@ impl<P: Parser> Parser for ManyParser<P> {
 /// Disclaimer: If any parser consumes input, it won't be rolled back by default
 /// If we do want the input to be rolled back, we use an attempt() arround the parser
 /// (aka AttemptParser::new)
-pub(crate) struct AlternativeParser<'ps, O, E> {
+#[derive(Debug)]
+pub(crate) struct AlternativeParser<'ps, O: std::fmt::Debug, E: std::fmt::Debug> {
     variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>
 }
 
-impl<'ps, O, E> AlternativeParser<'ps, O, E> {
+use std::fmt::Debug;
+
+
+impl<'ps, O, E> AlternativeParser<'ps, O, E> 
+    where O: Debug, E: Debug {
+
     pub fn new(variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>) -> Self {
         Self { variants }
     }
 }
 
-impl<'ps, O, E: ParserErr> Parser for AlternativeParser<'ps, O, E> {
+impl<'ps, O: Debug, E: Debug + ParserErr> Parser for AlternativeParser<'ps, O, E> {
     type Output = O;
     // TODO(mike): This isn't right, we need a custom error type.
     type PErr = ();

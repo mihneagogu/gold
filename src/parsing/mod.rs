@@ -50,6 +50,10 @@ impl<F, S> DoubleParser<F, S> {
 
 impl<F: Parser, S: Parser> Parser for DoubleParser<F, S> {
     type Output = (F::Output, S::Output);
+    // @MAYBE(mike) maybe this should be a Box<dyn ParserErr> and we return the right one?
+    // Like this it will return a bunch of FirstErr(SecondErr(FirstErr(... ) ) ) if we keep
+    // chaining
+    // the discard_then and then_discard
     type PErr = DoubleParserErr<F::PErr, S::PErr>;
 
     fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
@@ -140,6 +144,12 @@ pub trait Parser {
         DiscardThenParser::new(self, snd)
     }
 
+    /// Runs the parser on given input. Useful for small-scale testing
+    fn run_praser(&self, inp: &str) -> Result<Self::Output, Self::PErr> {
+        let mut ctx = ParsingContext::new(inp);
+        self.parse(&mut ctx)
+    }
+
     fn then_discard<P: Parser>(self, snd: P) -> ThenDiscardParser<Self, P>
         where Self: Sized
     {
@@ -153,6 +163,10 @@ impl<'inp> ParsingContext<'inp> {
     #[allow(dead_code)]
     pub fn peek_char(&self) -> Option<char> {
         self.cursor.chars().peekable().peek().copied()
+    }
+
+    pub fn contains_keyword(&self, w: &str) -> bool {
+        self.keywords.contains(w)
     }
 
     /// What is the row, column, index where the cursor is at the moment?
@@ -206,14 +220,21 @@ impl<'inp> ParsingContext<'inp> {
     /// Eat everything until whitespace (or end of input) and spit it back
     pub fn eat_until_ws(&mut self) -> &str {
         let mut advanced = 0;
+        let mut found_last = false;
         for (i, c) in self.cursor.chars().enumerate() {
             if c.is_whitespace() {
                 advanced = i;
                 break;
             }
             if i == self.cursor.len() - 1 {
+               found_last = true;
                advanced = i + 1;
             }
+        }
+        if !found_last && advanced == 0 { 
+            // It means we did actually reach the end of the string, but the additions
+            // don't add up since we might have encountered a non-ascii char along the way
+            advanced = self.cursor.len();
         }
         self.col += advanced;
         self.index += advanced;

@@ -1,3 +1,4 @@
+#![feature(assoc_char_funcs)]
 #![feature(int_error_matching)]
 mod parsing;
 mod tests;
@@ -5,7 +6,7 @@ mod tests;
 #[allow(unused_imports)]
 use parsing::combinators::*;
 use parsing::{Parser, ParsingContext, combinators::CharParser};
-use parsing::literals::NumberParser;
+use parsing::literals::{IdentParser, NumberParser};
 
 
 
@@ -35,11 +36,14 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let np = NUMBER_PARSER;
-    let p = np.discard_then(StringParser::new("def")).discard_then(StringParser::new("boogie"));
-    let mut pctx = ParsingContext::new("   \n   \n 123 \n def boogie  ");
-
-    println!("res: {:?}", p.parse(&mut pctx));
-    println!("ctx: {:?}", &pctx);
-    println!("len: {}", &pctx.input.len());
+    let ip = IdentParser{};
+    println!("{:?}", ip.run_praser("____"));
+    println!("{:?}", ip.run_praser("asd"));
+    println!("{:?}", ip.run_praser("3asd"));
+    println!("{:?}", ip.run_praser("  def"));
+    println!("{:?}", ip.run_praser("__def__ "));
+    let mut s = String::from("__def__");
+    let c: char = char::from_u32(0xd8342).unwrap();
+    s.push(c);
+    println!("{:?}", ip.run_praser(&s));
 }

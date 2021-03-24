@@ -118,6 +118,29 @@ mod parsing_tests {
 
     }
 
+    #[test]
+    fn ident_tests() {
+        let ip = IdentParser{};
+        // Need at least one alpha-num char
+        assert_eq!(ip.run_praser("____").is_err(), true);
+        assert_eq!(ip.run_praser("asd").is_ok(), true);
+        // Can't start with a digit
+        assert_eq!(ip.run_praser("3asd").is_err(), true);
+        // Can't define keywords as identifiers
+        assert_eq!(ip.run_praser("def").is_err(), true);
+        // This is fine
+        assert_eq!(ip.run_praser("_def").is_ok(), true);
+        // This is also fine but PLEASE do not name your variables like that
+        assert_eq!(ip.run_praser("__def__").is_ok(), true);
+        let mut s = String::from("__def__");
+        let c: char = char::from_u32(0xd8342).unwrap();
+        s.push(c);
+        // Can't have identifiers with unicode in them
+        assert_eq!(ip.run_praser(&s).is_err(), true);
+
+
+    }
+
     
 }
 

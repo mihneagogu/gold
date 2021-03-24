@@ -42,6 +42,10 @@ pub(crate) struct ParsingContext<'inp> {
     pub baggage: ParsingBaggage<'inp>
 }
 
+// TODO(mike): Refactor so that ParsingBaggage is different from ParsingContext,
+// so we can avoid the awkward transmute in parsing/types.rs
+
+/// Metadata about the special things to consider when parsing
 #[derive(Debug)]
 pub(crate) struct ParsingBaggage<'pctx> {
     // The order of the base types matter, since the base type parser will be
@@ -57,9 +61,10 @@ impl<'pctx> ParsingBaggage<'pctx> {
         let ps: Vec<_> = base_types.clone().into_iter().map(|t| StringParser::new(t)).collect();
         let ps: UnsafeCell<Vec<_>> = ps.into();
 
-        // SAFETY: We will only ever use this immutably, we simply want to refer to the parsers.
-        // We also know that the Vec<StringParser> we have will live exactly as long as the
-        // base_types, until the end of parsing
+        // TODO: This is not right, this will introduce unallowed aliasing on the Vec<StringParser>
+        // Possibly forget about the Vec<StringParser> and just Box the stringparsers,
+        // leak them and cast the leaked pointers as references, then when we drop the parsing
+        // baggage we also free the leaked boxes?
         let parsers: Vec<_> = unsafe {
             (&*ps.get()).iter().map(|p| p as &dyn Parser<Output = &'static str, PErr = StringParseErr>).collect()
         };

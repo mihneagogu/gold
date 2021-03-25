@@ -125,7 +125,30 @@ mod parsing_tests {
         // Can't have identifiers with unicode in them
         assert_eq!(ip.run_parser(&s).is_err(), true);
 
+    }
 
+    #[test]
+    fn simple_type_tests() {
+        let t = Type();
+        assert_eq!(t.run_parser("i32").is_ok(), true);
+        assert_eq!(t.run_parser("  SomeStruct ").is_ok(), true);
+        assert_eq!(t.run_parser("  ").is_err(), true);
+    }
+
+    #[test]
+    fn ptr_and_ref_type_tests() {
+        let t = Type();
+        assert_eq!(t.run_parser("&i32").is_ok(), true);
+        assert_eq!(t.run_parser("  **SomeStruct ").is_ok(), true);
+        assert_eq!(t.run_parser("  & & * SomeStruct").is_ok(), true);
+    }
+
+    #[test]
+    fn generic_types_tests() {
+        let t = Type();
+        assert_eq!(t.run_parser("Vec<i32>").is_ok(), true);
+        assert_eq!(t.run_parser("  Hashmap<Asd, Vec<Mike, El>> ").is_ok(), true);
+        assert_eq!(t.run_parser("  Pair<&i32, *&Mike>").is_ok(), true);
     }
 
     

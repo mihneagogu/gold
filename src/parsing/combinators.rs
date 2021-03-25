@@ -28,7 +28,7 @@ impl<P> ManyParser<P> {
     }
 }
 
-impl<P: Parser> Parser for ManyParser<P> {
+impl<P: Parser + Debug> Parser for ManyParser<P> {
     type Output = Vec<P::Output>;
     // The ManyParser always succeeds, since it might simply parse 0 instances
     // of inside
@@ -37,9 +37,10 @@ impl<P: Parser> Parser for ManyParser<P> {
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = Vec::new();
         loop {
-            // @MAYBE(mike): If the parsing fails just rollback and exit ?
             let before = ctx.current_state(); 
-            match self.inside.parse(baggage, ctx) {
+            let _res = self.inside.parse(baggage, ctx);
+            println!("res of many {:?}", _res);
+            match _res {
                 Ok(r) => res.push(r),
                 Err(_) => { ctx.roll_back_op(before); break; }
             }

@@ -8,7 +8,7 @@ mod ast;
 use parsing::combinators::*;
 use parsing::{Parser, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
-use parsing::types::{GenericType, PrimitiveType};
+use parsing::types::{Type, PrimitiveType};
 use ast::types;
 
 
@@ -39,8 +39,13 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let gt = GenericType();
-    println!("{:?}", gt.run_parser("Vec<i32>"));
-    println!("{:?}", gt.run_parser("Vec<Mike>"));
+    let t = Type();
+
+    
+    println!("{:?}", t.run_parser(" &**i32"));
+    println!("{:?}", t.run_parser(" & * *i32"));
+    // println!("{:}", t.then_discarc(CharParser(',')).run_parser(Mike
+    // println!("{:?}", t.run_parser(" & i32"));
+
 
 }

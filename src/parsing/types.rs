@@ -8,6 +8,7 @@ use crate::ast::types::Ty;
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PrimitiveType();
 
+#[derive(Debug)]
 pub(crate) enum TypeParserErr {
     UnclosedGeneric(String),
     ContainsUnicode(String),
@@ -27,17 +28,18 @@ fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
     // doesn't provide tail call optimisation so we would like to not use recursion,
     // although if the stack overflows from prasing a type, it means you're probably doing
     // something very wrong
-    let fst = *inp.chars().peekable().peek().unwrap();
+    
+    let fst = inp.chars().nth(0).unwrap();
 
-    let apply_to_ty = |res: Result<Ty, TypeParserErr>, onSucc: &dyn Fn(Ty) -> Ty| {
+    let apply_to_ty = |res: Result<Ty, TypeParserErr>, on_succ: &dyn Fn(Ty) -> Ty| {
         match res {
-            Ok(t) => Ok(onSucc(t)),
+            Ok(t) => Ok(on_succ(t)),
             e @ Err(_) => e
         }
     };
     let box_ty = |input: &str, is_ref: bool| {
         let f: &dyn Fn(Ty) -> Ty = if is_ref { &|t| Ty::Ref(Box::new(t)) } else { &|t| Ty::Ptr(Box::new(t)) };
-        apply_to_ty(parse_ty(&inp[1..]), f)
+        apply_to_ty(parse_ty(&input[1..]), f)
     };
 
     match fst {
@@ -58,8 +60,9 @@ fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
         for (i, c) in id.chars().enumerate() {
             match c {
                 ch if ch.is_numeric() => if i == 0 { return false },
-                '*' | '>' | '<' | '&' => return false,
-                ch if ch.is_alphabetic() => { found_alpha = true }
+                ',' | ' ' | '*' | '>' | '<' | '&' => return false,
+                ch if ch.is_alphabetic() => { found_alpha = true },
+                _ => unreachable!()
             }
         }
         if !found_alpha { false } else { true }
@@ -72,16 +75,13 @@ fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
             } else {
                 // now we need to see that the thing inside the generic brackets is a valid 
                 // type or sequence of types
-                let many_tys = ManyParser::new(Type().then_discard(CharParser(',')));
                 
                 // Get the inside from SomeT< inside >
-                let inside = &inp[idx.. inp.len() - 1];
-                let inside = many_tys.run_parser(inside);
-                if inside.is_err() {
-                    Err(TypeParserErr::InvalidFormat(inp.to_string()))
-                } else {
-                    Ok(unimplemented!())
-                }
+                let inside = &inp[idx+1.. inp.len() - 1];
+
+                // TODO(mike): Use sepBy(TypeParser, CharParser(',')) to get the inside
+                todo!()
+
             }
         }
     }
@@ -98,14 +98,20 @@ impl Parser for Type {
 
         // We are going hardcore here. We eat everything until the next whitespace then try 
         // to figure out whatever the type is
-        let inp = ctx.eat_until_ws();
-        let is_usable = |c: char| c == '_' || c == '<' || c == '>' || c == '&' || c == '*' || (c.is_ascii() && c.is_alphanumeric());
+
+        // TODO(mike): better way of capturing the input. We want to parse until we find an = of a
+        // declaration or a '-' from "->". We basically want to somehow delimit what is part of the
+        // type and what follows after
+        let inp = ctx.eat_until_cond(&|c| c == '-' || c == '=');
+        println!("input: {}", inp);
+        let is_usable = |c: char| c == ' ' || c == ',' || c == '_' || c == '<' || c == '>' || c == '&' || c == '*' || (c.is_ascii() && c.is_alphanumeric());
         let valid_chars = inp.chars().all(|c| is_usable(c));
-        if !valid_chars {
+        let inp_trimmed: String = inp.chars().filter(|c| *c != ' ').collect();
+        if !valid_chars || inp_trimmed.len() == 0 {
             return Err(ContainsUnicode(inp.to_string()));
         }
         
-        let r = parse_ty(inp);
+        let r = parse_ty(&inp_trimmed);
         if r.is_ok() {
             ctx.eat_ws();
         }

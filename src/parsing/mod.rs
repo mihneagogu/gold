@@ -173,10 +173,11 @@ impl<'a, T: Parser> Parser for &'a T {
     }
 }
 
-pub(crate) trait Parser: std::fmt::Debug {
+use std::fmt::Debug;
+pub(crate) trait Parser: Debug {
     // TODO(mike): Probably need to add require a label name
-    type Output;
-    type PErr: ParserErr;
+    type Output: Debug;
+    type PErr: ParserErr + Debug;
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
     fn discard_then<P: Parser>(self, snd: P) -> DiscardThenParser<Self, P> 
         where Self: Sized
@@ -261,10 +262,14 @@ impl<'inp> ParsingContext<'inp> {
 
     /// Eat everything until whitespace (or end of input) and spit it back
     pub fn eat_until_ws(&mut self) -> &str {
+        self.eat_until_cond(&|c| c.is_whitespace())
+    }
+
+    pub fn eat_until_cond(&mut self, cond: &dyn Fn(char) -> bool) -> &str {
         let mut advanced = 0;
         let mut found_last = false;
         for (i, c) in self.cursor.chars().enumerate() {
-            if c.is_whitespace() {
+            if cond(c) {
                 advanced = i;
                 break;
             }

@@ -2,12 +2,14 @@
 #![feature(int_error_matching)]
 mod parsing;
 mod tests;
+mod ast;
 
 #[allow(unused_imports)]
 use parsing::combinators::*;
 use parsing::{Parser, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
-use parsing::types::PrimitiveType;
+use parsing::types::{GenericType, PrimitiveType};
+use ast::types;
 
 
 
@@ -37,9 +39,8 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let pt = PrimitiveType{};
-    println!("{:?}", &pt.run_parser("  u81 \n"));
-    println!("{:?}", &pt.run_parser("\n u8"));
-    println!("{:?}", &pt.run_parser("i8       "));
+    let gt = GenericType();
+    println!("{:?}", gt.run_parser("Vec<i32>"));
+    println!("{:?}", gt.run_parser("Vec<Mike>"));
 
 }

@@ -17,6 +17,7 @@ use std::fs;
 use std::collections::HashSet;
 use std::cell::UnsafeCell;
 
+pub mod statements;
 pub mod literals;
 pub mod combinators;
 pub mod types;
@@ -228,7 +229,7 @@ impl<'inp> ParsingContext<'inp> {
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {
-        let kw = vec!["for", "def", "if", "else", "bool", "()", "f32", "f64","i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "&StaticString"];
+        let kw = vec!["let", "let", "for", "def", "if", "else", "bool", "()", "f32", "f64","i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "&StaticString"];
         let keywords: HashSet<&'static str> = kw.into_iter().collect();
         let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords };
         s.eat_ws();

@@ -22,6 +22,12 @@ pub(crate) struct ManyParser<P> {
     inside: P
 }
 
+impl<P> ManyParser<P> {
+    pub fn new(inside: P) -> Self {
+        Self { inside }
+    }
+}
+
 impl<P: Parser> Parser for ManyParser<P> {
     type Output = Vec<P::Output>;
     // The ManyParser always succeeds, since it might simply parse 0 instances
@@ -141,11 +147,35 @@ pub(crate) struct RawStringParser {
     expected: &'static str
 }
 
-/// Parses exactly the char inside
+/// Parses exactly the char inside (does NOT eat whitespace after it)
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct CharParser(char);
+pub(crate) struct RawCharParser(char);
+
+/// Parses a char and eats whitespace afterwards
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct CharParser(pub char);
 
 impl CharParser {
+    #[inline(always)]
+    pub fn new(ch: char) -> Self {
+        Self(ch)
+    }
+}
+
+impl Parser for CharParser {
+    type Output = char;
+    type PErr = CharParseErr;
+
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let res = RawCharParser(self.0).parse(baggage, ctx);
+        if res.is_ok() {
+            ctx.eat_ws();
+        }
+        res
+    }
+}
+
+impl RawCharParser {
     #[inline(always)]
     pub fn new(ch: char) -> Self {
         Self(ch)
@@ -159,7 +189,7 @@ pub(crate) enum CharParseErr {
 }
 impl ParserErr for CharParseErr {}
 
-impl Parser for CharParser {
+impl Parser for RawCharParser {
     type Output = char;
     type PErr = CharParseErr;
 

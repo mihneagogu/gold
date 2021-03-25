@@ -53,7 +53,6 @@ impl Parser for IdentParser {
 
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let inp = ctx.eat_until_ws();
-        // @MAYBE(mike): could use a transmute to avoid the allocation, but it's not really that important
         let _inp = inp.to_string();
         let inp: &str = &_inp;
         if ctx.contains_keyword(inp) {

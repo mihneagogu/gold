@@ -1,4 +1,4 @@
-use crate::parsing::{ParsingContext, ParserErr, Parser};
+use crate::parsing::{ParsingContext, ParserErr, Parser, ParsingBaggage};
 
 // TODO(mike): Add labels to all parsers, so that the alternative parser
 // can have its own label like this:
@@ -28,12 +28,12 @@ impl<P: Parser> Parser for ManyParser<P> {
     // of inside
     type PErr = (); 
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = Vec::new();
         loop {
             // @MAYBE(mike): If the parsing fails just rollback and exit ?
             let before = ctx.current_state(); 
-            match self.inside.parse(ctx) {
+            match self.inside.parse(baggage, ctx) {
                 Ok(r) => res.push(r),
                 Err(_) => { ctx.roll_back_op(before); break; }
             }
@@ -69,11 +69,11 @@ impl<'ps, O: Debug, E: Debug + ParserErr> Parser for AlternativeParser<'ps, O, E
     type Output = O;
     // TODO(mike): This isn't right, we need a custom error type.
     type PErr = ();
-    fn parse (&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse (&self, baggage: &ParsingBaggage,ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = None;
         // Perform all parsers until we succeed or we run out of things to do
         for p in &self.variants {
-            let r = p.parse(ctx);
+            let r = p.parse(baggage, ctx);
             match r {
                 Ok(o) => { res = Some(o); break; }
                 _ => ()
@@ -103,8 +103,8 @@ impl StringParser {
 impl Parser for StringParser {
     type Output = &'static str;
     type PErr = StringParseErr;
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        let res = AttemptParser::new(RawStringParser::new(self.expected)).parse(ctx);
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        let res = AttemptParser::new(RawStringParser::new(self.expected)).parse(baggage, ctx);
         if res.is_ok() {
             if ctx.keywords.contains(self.expected) {
                 if let Some(next) = ctx.peek_char() {
@@ -163,7 +163,7 @@ impl Parser for CharParser {
     type Output = char;
     type PErr = CharParseErr;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         match ctx.peek_char() {
             None => Err(CharParseErr::Empty),
             Some(ch) => {
@@ -203,7 +203,7 @@ impl Parser for RawStringParser {
     type Output = &'static str;
     type PErr = StringParseErr; // Char mismatch err
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let inp = ctx.eat_many(self.expected.len());
         let res = match inp {
             Some(i) if i == self.expected => Ok(self.expected),
@@ -229,10 +229,10 @@ impl<P: Parser> Parser for AttemptParser<P> {
     // doesn't work
     type PErr = P::PErr;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let state_before = ctx.current_state();
 
-        let res = self.inside.parse(ctx);
+        let res = self.inside.parse(baggage, ctx);
 
         // If the operation didn't work, just roll back the parser as if nothing had happened
         match &res {
@@ -259,8 +259,8 @@ impl<P: Parser> OptionParser<P> {
         Self { inside }
     }
 
-    fn parse_to_option(&self, ctx: &mut ParsingContext) -> Option<P::Output> {
-        self.parse(ctx).unwrap()
+    fn parse_to_option(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Option<P::Output> {
+        self.parse(baggage, ctx).unwrap()
     }
 }
 
@@ -273,11 +273,11 @@ impl<P: Parser> Parser for OptionParser<P> {
     type Output = Option<P::Output>;
     type PErr = ();
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, ()> {
         let state_before = ctx.current_state();
 
         // Try to parse it, and if we can't, just pretend it didn't happen
-        match self.inside.parse(ctx) {
+        match self.inside.parse(baggage, ctx) {
             Ok(res) => { ctx.eat_ws(); Ok(Some(res)) }
             Err(_) =>  { ctx.roll_back_op(state_before) ; Ok(None) }
         }

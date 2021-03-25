@@ -1,6 +1,6 @@
 use std::num::IntErrorKind;
 use super::ParsingContext;
-use crate::parsing::{Parser, ParserErr};
+use crate::parsing::{Parser, ParserErr, ParsingBaggage};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -51,7 +51,7 @@ impl Parser for IdentParser {
     type PErr = IdentParserErr;
 
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let inp = ctx.eat_until_ws();
         // @MAYBE(mike): could use a transmute to avoid the allocation, but it's not really that important
         let _inp = inp.to_string();
@@ -85,7 +85,7 @@ impl Parser for NumberParser {
     type Output = i32;
     type PErr = NumberParseErr;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, _baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         use NumberParseErr::InvalidNumber;
 
         let inp = ctx.eat_until_ws();

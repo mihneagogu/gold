@@ -38,8 +38,7 @@ pub(crate) struct ParsingContext<'inp> {
     pub index: usize, // The place where we are at in the input
     pub input: &'inp str, // The whole input
     pub cursor: &'inp str, // Where we are currently in the input
-    keywords: HashSet<&'static str>,
-    pub baggage: ParsingBaggage<'inp>
+    keywords: HashSet<&'static str>
 }
 
 // TODO(mike): Refactor so that ParsingBaggage is different from ParsingContext,
@@ -61,10 +60,11 @@ impl<'pctx> ParsingBaggage<'pctx> {
         let ps: Vec<_> = base_types.clone().into_iter().map(|t| StringParser::new(t)).collect();
         let ps: UnsafeCell<Vec<_>> = ps.into();
 
-        // TODO: This is not right, this will introduce unallowed aliasing on the Vec<StringParser>
-        // Possibly forget about the Vec<StringParser> and just Box the stringparsers,
-        // leak them and cast the leaked pointers as references, then when we drop the parsing
-        // baggage we also free the leaked boxes?
+        // TODO(mike): Make an AlternativeParser which takes an owned type, 
+        // this is kind of awkward since we are storing ps in the struct just to keep the
+        // references of the AlternativeParser alive, but they serve no other purpose.
+        // We should just an alternative parser which takes either a Vec<T: Parser> 
+        // and one which takes a Vec<Box<dyn Parser>> so that we can own the parsers inside
         let parsers: Vec<_> = unsafe {
             (&*ps.get()).iter().map(|p| p as &dyn Parser<Output = &'static str, PErr = StringParseErr>).collect()
         };
@@ -95,13 +95,13 @@ impl<F: Parser, S: Parser> Parser for DoubleParser<F, S> {
     // the discard_then and then_discard
     type PErr = DoubleParserErr<F::PErr, S::PErr>;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let r1;
-        match self.first.parse(ctx) {
+        match self.first.parse(baggage, ctx) {
             Err(e) => return Err(DoubleParserErr::FirstError(e)),
             Ok(r) => { r1 = r; }
         };
-        match self.second.parse(ctx) {
+        match self.second.parse(baggage, ctx) {
             Ok(r2) => Ok((r1, r2)),
             Err(e) => Err(DoubleParserErr::SecondError(e))
         }
@@ -120,8 +120,8 @@ impl<F: Parser, S: Parser> Parser for ThenDiscardParser<F, S> {
     type Output = F::Output;
     type PErr = DoubleParserErr<F::PErr, S::PErr>;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        DoubleParser::new(&self.first, &self.second).parse(ctx).map(|(fst, _)| fst)
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        DoubleParser::new(&self.first, &self.second).parse(baggage, ctx).map(|(fst, _)| fst)
     }
 }
 
@@ -157,8 +157,8 @@ impl<F: Parser, S: Parser> Parser for DiscardThenParser<F, S> {
     type Output = S::Output;
     type PErr = DoubleParserErr<F::PErr, S::PErr>;
 
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        DoubleParser::new(&self.first, &self.second).parse(ctx).map(|(_, snd)| snd)
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        DoubleParser::new(&self.first, &self.second).parse(baggage, ctx).map(|(_, snd)| snd)
     }
 
 }
@@ -167,8 +167,8 @@ impl<'a, E: ParserErr> ParserErr for &'a E {}
 impl<'a, T: Parser> Parser for &'a T {
     type Output = T::Output;
     type PErr = T::PErr;
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<T::Output, T::PErr> {
-        T::parse(self, ctx)
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<T::Output, T::PErr> {
+        T::parse(self, baggage, ctx)
     }
 }
 
@@ -176,7 +176,7 @@ pub(crate) trait Parser: std::fmt::Debug {
     // TODO(mike): Probably need to add require a label name
     type Output;
     type PErr: ParserErr;
-    fn parse(&self, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr>;
     fn discard_then<P: Parser>(self, snd: P) -> DiscardThenParser<Self, P> 
         where Self: Sized
     {
@@ -186,7 +186,8 @@ pub(crate) trait Parser: std::fmt::Debug {
     /// Runs the parser on given input. Useful for small-scale testing
     fn run_parser(&self, inp: &str) -> Result<Self::Output, Self::PErr> {
         let mut ctx = ParsingContext::new(inp);
-        self.parse(&mut ctx)
+        let baggage = ParsingBaggage::init();
+        self.parse(&baggage, &mut ctx)
     }
 
     fn then_discard<P: Parser>(self, snd: P) -> ThenDiscardParser<Self, P>
@@ -228,9 +229,8 @@ impl<'inp> ParsingContext<'inp> {
         where T: AsRef<str> + ?Sized
     {
         let kw = vec!["for", "def", "if", "else", "bool", "()", "f32", "f64","i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "&StaticString"];
-        let baggage = ParsingBaggage::init();
         let keywords: HashSet<&'static str> = kw.into_iter().collect();
-        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords, baggage };
+        let mut s = Self { row: 1, col: 1, index: 0, input: input.as_ref(), cursor: input.as_ref(), keywords };
         s.eat_ws();
         s
     }

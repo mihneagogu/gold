@@ -8,7 +8,7 @@ mod ast;
 use parsing::combinators::*;
 use parsing::{Parser, ParsingBaggage, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
-use parsing::types::{Type, PrimitiveType};
+use parsing::types::Type;
 use ast::types;
 
 
@@ -37,10 +37,11 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let t = Type();
+    let t = Type;
 
-    let mut ctx = ParsingContext::new("Mike<Vec<i32>> = hello i am after");
+    let mut ctx = ParsingContext::new(" \n\n Vec<HashMap<Hello<Hi>, Byebye>> abcdef");
     println!("{:?}", t.parse(&ParsingBaggage::init(), &mut ctx));
     println!("{:?}", &ctx);
-    println!("{:?}", ctx.input.chars().nth(ctx.index));
+    println!("{:?}", &ctx.input[ctx.index..]);
+
 }

@@ -107,7 +107,7 @@ mod parsing_tests {
 
     #[test]
     fn ident_tests() {
-        let ip = IdentParser{};
+        let ip = IdentParser;
         // Need at least one alpha-num char
         assert_eq!(ip.run_parser("____").is_err(), true);
         assert_eq!(ip.run_parser("asd").is_ok(), true);
@@ -120,16 +120,11 @@ mod parsing_tests {
         // This is also fine but PLEASE do not name your variables like that
         assert_eq!(ip.run_parser("__def__").is_ok(), true);
         let mut s = String::from("__def__");
-        let c: char = char::from_u32(0xd8342).unwrap();
-        s.push(c);
-        // Can't have identifiers with unicode in them
-        assert_eq!(ip.run_parser(&s).is_err(), true);
-
     }
 
     #[test]
     fn simple_type_tests() {
-        let t = Type();
+        let t = Type;
         assert_eq!(t.run_parser("i32").is_ok(), true);
         assert_eq!(t.run_parser("  SomeStruct ").is_ok(), true);
         assert_eq!(t.run_parser("  ").is_err(), true);
@@ -137,7 +132,7 @@ mod parsing_tests {
 
     #[test]
     fn ptr_and_ref_type_tests() {
-        let t = Type();
+        let t = Type;
         assert_eq!(t.run_parser("&i32").is_ok(), true);
         assert_eq!(t.run_parser("  **SomeStruct ").is_ok(), true);
         assert_eq!(t.run_parser("  & & * SomeStruct").is_ok(), true);
@@ -145,10 +140,11 @@ mod parsing_tests {
 
     #[test]
     fn generic_types_tests() {
-        let t = Type();
+        let t = Type;
         assert_eq!(t.run_parser("Vec<i32>").is_ok(), true);
         assert_eq!(t.run_parser("  Hashmap<Asd, Vec<Mike, El>> ").is_ok(), true);
         assert_eq!(t.run_parser("  Pair<&i32, *&Mike>").is_ok(), true);
+        assert_eq!(t.run_parser("  Pair<&i32, *&HashMap<Mike, Vec<Type1, Type2>, Type3>>").is_ok(), true);
     }
 
     

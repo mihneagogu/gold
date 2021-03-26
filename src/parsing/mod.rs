@@ -230,6 +230,13 @@ impl<'inp> ParsingContext<'inp> {
         self.cursor = cursor;
     }
 
+    pub fn advance_one(&mut self) -> &mut Self {
+        self.col += 1;
+        self.index += 1;
+        self.cursor = &self.cursor[1..];
+        self
+    }
+
     pub fn new<T>(input: &'inp T) -> Self
         where T: AsRef<str> + ?Sized
     {

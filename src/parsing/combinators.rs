@@ -242,14 +242,14 @@ impl Parser for CharParser {
     type PErr = CharParseErr;
 
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
-        let res = RawCharParser(self.0).parse(baggage, ctx);
-        if res.is_ok() {
-            // We parsed an ascii char, so we advanced 1 byte
-            ctx.index += 1;
-            ctx.cursor = &ctx.cursor[1..];
-            ctx.eat_ws();
+        match RawCharParser(self.0).parse(baggage, ctx) {
+            Ok(c) => {
+                // We parsed an ascii char, so we advanced 1 byte
+                ctx.eat_ws();
+                Ok(c)
+            },
+            err => err
         }
-        res
     }
 }
 
@@ -286,7 +286,7 @@ impl Parser for RawCharParser {
                 } else { 
                     ctx.col += 1;
                 }
-                if res.is_ok() { ctx.eat_ws(); }
+                ctx.cursor = &ctx.cursor[1..];
                 res
             }
         }
@@ -366,7 +366,7 @@ impl<P: Parser> OptionParser<P> {
         Self { inside }
     }
 
-    fn parse_to_option(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Option<P::Output> {
+    pub fn parse_to_option(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Option<P::Output> {
         self.parse(baggage, ctx).unwrap()
     }
 }

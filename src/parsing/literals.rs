@@ -20,19 +20,20 @@ impl ParserErr for NumberParseErr {}
 pub(crate) struct NumberParser {}
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct IdentParser{}
+pub(crate) struct IdentParser;
 
 #[derive(Debug)]
 pub(crate) enum IdentParserErrReason {
     IllicitChar(char),
-    FoundKeyword(String),
-    NoAlphaNum
+    FoundKeyword,
+    NoAlphaNum,
+    EmptyInp
 }
 
 #[derive(Debug)]
 pub(crate) struct IdentParserErr {
-    found: String,
-    reason: IdentParserErrReason,
+    pub found: String,
+    pub reason: IdentParserErrReason,
     row: usize,
     col: usize
 }
@@ -41,22 +42,13 @@ impl IdentParserErr {
     fn new(found: &str, reason: IdentParserErrReason /* TODO:row, col */) -> Self {
         Self { found: found.to_string(), reason, row: 0, col: 0 }
     }
-}
 
-impl ParserErr for IdentParserErr {}
-
-use IdentParserErrReason::*;
-impl Parser for IdentParser {
-    type Output = String;
-    type PErr = IdentParserErr;
-
-
-    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn _parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<String, IdentParserErr> {
         let inp = ctx.eat_until_ws();
         let _inp = inp.to_string();
         let inp: &str = &_inp;
         if ctx.contains_keyword(inp) {
-            return Err(IdentParserErr::new(inp, FoundKeyword(inp.to_string())));
+            return Err(IdentParserErr::new(inp, FoundKeyword));
         }
         let first = inp.chars().nth(0).unwrap();
         let first_is_ok = (first.is_alphabetic() && first.is_ascii()) || first == '_';
@@ -77,7 +69,63 @@ impl Parser for IdentParser {
         } else {
             Ok(inp.to_string())
         }
+
     }
+}
+
+
+impl ParserErr for IdentParserErr {}
+
+use IdentParserErrReason::*;
+impl Parser for IdentParser {
+    type Output = String;
+    type PErr = IdentParserErr;
+
+
+    fn parse(&self, _baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+        const BASE: u32 = 10;
+
+        let mut eaten = 0;
+        let valid_char = |c: char| c == '_' || (c.is_alphanumeric() && c.is_ascii());
+        for (idx, c) in ctx.cursor.chars().enumerate() {
+            match c {
+                ch if idx == 0 && c.is_digit(BASE) => return Err(IdentParserErr::new(&ctx.cursor[..eaten], IllicitChar(ch))),
+                ch if valid_char(ch) => eaten += 1,
+                _ => break
+            }
+        }
+
+        if eaten == 0 {
+            // We didn't manage to parse anything useful
+            Err(IdentParserErr::new("", EmptyInp))
+        } else {
+            ctx.col += eaten;
+            ctx.index += eaten;
+            let eaten_str = &ctx.cursor[..eaten];
+            ctx.cursor = &ctx.cursor[eaten..];
+            ctx.eat_ws();
+
+            let mut found_alpha = false;
+            for c in eaten_str.chars() {
+                if c.is_alphabetic() {
+                    found_alpha = true;
+                    break;
+                }
+            }
+
+            if found_alpha {
+                if ctx.contains_keyword(eaten_str) {
+                    Err(IdentParserErr::new(eaten_str, FoundKeyword))
+                } else {
+                    Ok(eaten_str.to_string())
+                }
+            } else {
+                Err(IdentParserErr::new(eaten_str, NoAlphaNum))
+            }
+
+        }
+    }
+
 }
 
 impl Parser for NumberParser {

@@ -37,10 +37,10 @@ fn main() {
             // process::exit(FILE_NOT_FOUND_EXIT);
 //         }
     //};
-    let t = Type();
+    let t = Type;
+    let g = CharParser('<').discard_then(SepByParser::new(Type, CharParser(','))).then_discard(CharParser('>'));
 
-    let mut ctx = ParsingContext::new("Mike<Vec<i32>> = hello i am after");
-    println!("{:?}", t.parse(&ParsingBaggage::init(), &mut ctx));
-    println!("{:?}", &ctx);
-    println!("{:?}", ctx.input.chars().nth(ctx.index));
+    println!("{:?}", IdentParser.run_parser("Mike>"));
+    println!("{:?}", Type.then_discard(g).run_parser("Vec<Mike, Asd>"));
+    // println!("{:?}", t.run_parser(" Mike<i32> ty"));
 }

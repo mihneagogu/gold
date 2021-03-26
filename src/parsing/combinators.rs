@@ -366,7 +366,7 @@ impl<P: Parser> OptionParser<P> {
         Self { inside }
     }
 
-    fn parse_to_option(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Option<P::Output> {
+    pub fn parse_to_option(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Option<P::Output> {
         self.parse(baggage, ctx).unwrap()
     }
 }

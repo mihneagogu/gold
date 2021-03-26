@@ -20,8 +20,6 @@ const FILE_NOT_FOUND_EXIT: i32 = 3;
 #[allow(dead_code)]
 const EXECUTABLE_AND_MORE: usize = 2;
 
-const NUMBER_PARSER: NumberParser = NumberParser{};
-
 fn main() {
     // let args: Vec<String> = std::env::args().collect();
     // if args.len() < EXECUTABLE_AND_MORE {
@@ -40,8 +38,8 @@ fn main() {
 //         }
     //};
     let t = Type();
-    let ms = SepByParser::new(t, CharParser(','));
-    
-    println!("{:?}", ms.run_parser("&i32, **i32, **&&SomeStruct, Mike  , Mike,     Mike"));
 
+    let mut ctx = ParsingContext::new("Mike<ofhi, i32, bye, wowiee<tyty, and, byebye>>");
+    let s = SepByParser::new(Type(), CharParser(','));
+    println!("{:?}", t.run_parser("HashMap<&*VecL<L1, L2>, Vec<Mike>>"));
 }

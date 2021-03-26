@@ -17,6 +17,7 @@
 use std::fs;
 use std::collections::HashSet;
 use std::cell::UnsafeCell;
+use std::collections::VecDeque;
 
 pub mod statements;
 pub mod literals;
@@ -266,6 +267,78 @@ impl<'inp> ParsingContext<'inp> {
     pub fn eat_until_ws(&mut self) -> &str {
         self.eat_until_cond(&|c| c.is_whitespace())
     }
+
+    /// Eats a whole type definition. This is non-trivial because we want
+    /// to capture also generic types and simple types
+    /// For example: if we use sepBy(TypeParser, CharParser(',')) on
+    /// Basic1, Basic2, Basic3 we would like to get ["Basic1", "Basic2", "Basic3"],
+    /// so the type eaten by the TypeParser is "Basic1", then "Basic2", then "Basic3"
+    /// but if we want to parse Gen<Basic1, Basic2, Basic3> what we want the parser to eat
+    /// is "Gen<Basic1, Basic2, Basic3>", since those commas are part of the type definition
+    pub fn eat_type_definition(&mut self) -> Option<&str> {
+        // TODO(mike): return errors instead of None, since there are multiple ways the input can be ill-formed
+        
+        // Tactic: Eat based on the angle brackets. When we reach a '-', a ')' or a '=' we know
+        // the type signature must be done. However, when we reach a comma we stop eating if and only if
+        // our stack of angle brackets is empty, otherwise we keep going. 
+        // If somehow the angle brackets don't match and we have consumed all input or must stop,
+        // then we return None, in which case the type parser should issue an angle bracket mismatch err
+        // or we found a newline or an illicit character
+
+        let should_end = |c: char| c == '-' || c == '=' || c == ')' || c == '{';
+        let allowed_char = |c: char| c == '&' || c == '*' || (c.is_alphanumeric() && c.is_ascii()) || c == ' ' || c == '<' || c == '>' || c == ',' || c == '_';
+        let mut advanced = 0;
+        let mut reached_end = false;
+        let mut brackets = VecDeque::new();
+        for (idx, c) in self.cursor.chars().enumerate() {
+            match c {
+                ch if should_end(ch) => break, // If we found an character which is no longer part of the type, we exit
+                ',' => {
+                    self.col += 1;
+                    advanced = idx;
+                    // If the angle bracket stack is empty, it means we need to stop here. Otherwise it means we need to carry on
+                    if brackets.is_empty() {
+                        self.index += advanced;
+                        let eaten = &self.cursor[..advanced];
+                        self.cursor = &self.cursor[advanced..];
+                        return Some(eaten);
+                    }
+                    // Otherwise we just go on 
+                },
+                '\n' | '\t' | '\r' => { return None },
+                '<' => {
+                    self.col += 1;
+                    brackets.push_front('<');
+                }
+                '>' => {
+                    self.col += 1;
+                    if brackets.is_empty() {
+                        // We found a > without a <
+                        return None;
+                    }
+                    brackets.pop_front();
+                }
+                ch if !allowed_char(ch) => { return None },
+                _ => { self.col += 1; advanced = idx;  }
+                    
+
+            };
+            if idx == self.cursor.len() - 1 {
+                reached_end = true;
+            }
+        }
+
+        let advanced = if reached_end { self.cursor.len() } else { advanced };
+        // We reached here, so we must either have consumed all input or found a character which signalled us to stop
+        // There still is a chance of having unclosed angle brackets
+        if brackets.is_empty() {
+            self.index += advanced;
+            let eaten = &self.cursor[..advanced];
+            self.cursor = &self.cursor[advanced..];
+            Some(eaten)
+        } else { None }
+    }
+
 
     pub fn eat_until_cond(&mut self, cond: &dyn Fn(char) -> bool) -> &str {
         let mut advanced = 0;

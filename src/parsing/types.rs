@@ -1,6 +1,5 @@
-use crate::parsing::combinators::{ManyParser, CharParser, StringParser, StringParseErr, AlternativeParser};
+use crate::parsing::combinators::{SepByParser, CharParser, StringParser, StringParseErr, AlternativeParser};
 use crate::parsing::{ParsingBaggage, ParserErr, Parser, ParsingContext};
-use crate::parsing::literals::IdentParser;
 
 use crate::ast::types::Ty;
 
@@ -11,15 +10,13 @@ pub(crate) struct PrimitiveType();
 #[derive(Debug)]
 pub(crate) enum TypeParserErr {
     UnclosedGeneric(String),
+    InvalidGeneric(String),
     ContainsUnicode(String),
     InvalidFormat(String), // i*nt or i&n&t is not faild
     EmptyStr
 }
 
 impl ParserErr for TypeParserErr {}
-
-/// A userdefined type is just another identifier.
-type UserType = IdentParser;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Type();
@@ -77,12 +74,19 @@ fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
                 // now we need to see that the thing inside the generic brackets is a valid 
                 // type or sequence of types
                 
-                // Get the inside from SomeT< inside >
-                let _inside = &inp[idx+1.. inp.len() - 1];
+                
+                let name = &inp[0..idx]; // The name of the type
+                let inside = &inp[idx+1.. inp.len() - 1]; // The generics args
 
-                // TODO(mike): Use sepBy(TypeParser, CharParser(',')) to get the inside
-                todo!()
-
+                // We have a generic type, now parse the types inside the < > 
+                let generics = SepByParser::new(Type(), CharParser(','));
+            
+                match generics.run_parser(inside) {
+                    Ok(tys) => { 
+                        Ok(Ty::Generic(name.to_string(), tys)) 
+                    },
+                    Err(_) => Err(TypeParserErr::InvalidGeneric(inside.to_string()))
+                }
             }
         }
     }
@@ -94,7 +98,7 @@ impl Parser for Type {
     type Output = Ty;
     type PErr = TypeParserErr;
 
-    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
+    fn parse(&self, _baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         use TypeParserErr::*;
 
         // We are going hardcore here. We eat everything until the next whitespace then try 
@@ -103,8 +107,11 @@ impl Parser for Type {
         // TODO(mike): better way of capturing the input. We want to parse until we find an = of a
         // declaration or a '-' from "->". We basically want to somehow delimit what is part of the
         // type and what follows after
-        let inp = ctx.eat_until_cond(&|c| c == '-' || c == '=' || c == ',');
-        println!("input: {}", inp);
+        let inp = ctx.eat_type_definition();
+        if inp.is_none() {
+            return Err(TypeParserErr::InvalidFormat("__garbabe__".to_string()));
+        }
+        let inp = inp.unwrap();
         let is_usable = |c: char| c == ' ' || c == ',' || c == '_' || c == '<' || c == '>' || c == '&' || c == '*' || (c.is_ascii() && c.is_alphanumeric());
         let valid_chars = inp.chars().all(|c| is_usable(c));
         let inp_trimmed: String = inp.chars().filter(|c| *c != ' ').collect();

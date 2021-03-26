@@ -39,7 +39,7 @@ fn main() {
     //};
     let t = Type;
 
-    let mut ctx = ParsingContext::new(" \n Vec<Hello<Hi>> abcdef");
+    let mut ctx = ParsingContext::new(" \n\n Vec<HashMap<Hello<Hi>, Byebye>> abcdef");
     println!("{:?}", t.parse(&ParsingBaggage::init(), &mut ctx));
     println!("{:?}", &ctx);
     println!("{:?}", &ctx.input[ctx.index..]);

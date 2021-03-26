@@ -40,12 +40,13 @@ fn main() {
 //         }
     //};
     let t = Type();
-
+    let ms = SepByParser::new(StringParser::new("Mike"), CharParser(','));
     
-    println!("{:?}", t.run_parser(" &**i32"));
-    println!("{:?}", t.run_parser(" & * *i32"));
-    // println!("{:}", t.then_discarc(CharParser(',')).run_parser(Mike
-    // println!("{:?}", t.run_parser(" & i32"));
+    // println!("{:?}", t.run_parser(" &**i32"));
+    // println!("{:?}", t.run_parser(" & * *i32"));
+    
+    println!("{:?}", ms.run_parser("Mike  , Mike,     Mike"));
+    println!("{:?}", ms.run_parser("Mike  , Mike,     Mike,"));
 
 
 }

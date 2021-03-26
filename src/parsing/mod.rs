@@ -13,6 +13,7 @@
 /// but that would be a library on its own. What we are interested in is precisely to parse
 /// correctly and give good errors, but exactly how we parse the source code.
 
+
 use std::fs;
 use std::collections::HashSet;
 use std::cell::UnsafeCell;
@@ -26,7 +27,7 @@ use combinators::{StringParseErr, StringParser};
 use self::combinators::AlternativeParser;
 
 // Empty for now
-pub(crate) trait ParserErr {}
+pub(crate) trait ParserErr: Debug {}
 
 
 /// This is a struct which represents the whole parsing context,

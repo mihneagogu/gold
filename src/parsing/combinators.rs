@@ -4,6 +4,81 @@ use crate::parsing::{ParsingContext, ParserErr, Parser, ParsingBaggage};
 // can have its own label like this:
 // "Expected one of <label1>, <label2> ... "
 
+#[derive(Debug)]
+pub(crate) struct SepBy1Parser<P, Del> {
+    inside: P,
+    delimiter: Del
+}
+
+impl<P, Del> SepBy1Parser<P, Del> {
+    pub fn new(inside: P, delimiter: Del) -> Self {
+        Self { inside, delimiter }
+    }
+}
+
+impl<P: Parser, Del: Parser> Parser for SepBy1Parser<P, Del> {
+    type Output = Vec<P::Output>;
+    type PErr = P::PErr;
+    fn parse(&self, _baggage: &ParsingBaggage, _ctx: &mut ParsingContext) 
+        -> Result<Self::Output, Self::PErr> {
+            todo!()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SepByParser<P, Del> {
+    inside: P,
+    delimiter: Del
+}
+
+impl<P, Del> SepByParser<P, Del> {
+    pub fn new(inside: P, delimiter: Del) -> Self {
+        Self { inside, delimiter }
+    }
+}
+
+impl ParserErr for Box<dyn ParserErr> {}
+
+impl<P: Parser, Del: Parser> Parser for SepByParser<P, Del> {
+    type Output = Vec<P::Output>;
+    // The parser can fail only if we find an INSIDE, then a delimiter,
+    // but no INSIDE following after the delimiter
+    type PErr = P::PErr;
+
+    fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) 
+        -> Result<Self::Output, Self::PErr> {
+        let at = AttemptParser::new(&self.inside);
+        
+        // TODO(mike): Make a special case when the delimiter is a StringParser
+        // or CharParser since those attempt, so there is no reason to add another
+        // attempt on top of it, it is just redundant
+        let del = AttemptParser::new(&self.delimiter);
+        let mut res = Vec::new();
+
+        let mut found_del = false;
+        loop {
+            let ins = at.parse(baggage, ctx);
+            if ins.is_err() {
+                // We found at least one inside, then a delimiter, but no inside
+                // after the delimiter. So this didn't parse right
+                if found_del {
+                    return Err(ins.err().unwrap());
+                }
+                break;
+            }
+
+            res.push(ins.unwrap());
+            found_del = true;
+            let d = del.parse(baggage, ctx);
+            if d.is_err() {
+                break;
+            }
+
+        }
+        Ok(res)
+    }
+}
+
 /// This parser parses 0 or more instances of INSIDE.
 /// This is done by repeatedly applying the parser inside. When it fails, however,
 /// it will not consume input (since we might be parsing 0 instances of INSIDE).
@@ -39,7 +114,6 @@ impl<P: Parser + Debug> Parser for ManyParser<P> {
         loop {
             let before = ctx.current_state(); 
             let _res = self.inside.parse(baggage, ctx);
-            println!("res of many {:?}", _res);
             match _res {
                 Ok(r) => res.push(r),
                 Err(_) => { ctx.roll_back_op(before); break; }
@@ -170,6 +244,9 @@ impl Parser for CharParser {
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let res = RawCharParser(self.0).parse(baggage, ctx);
         if res.is_ok() {
+            // We parsed an ascii char, so we advanced 1 byte
+            ctx.index += 1;
+            ctx.cursor = &ctx.cursor[1..];
             ctx.eat_ws();
         }
         res
@@ -239,9 +316,8 @@ impl Parser for RawStringParser {
         let res = match inp {
             Some(i) if i == self.expected => Ok(self.expected),
             Some(i) => Err(StringParseErr::StringMismatch(self.expected, i.to_string())),
-            None => Err(StringParseErr::NotEnoughInput)
+            None => Err(StringParseErr::StringMismatch(self.expected, ctx.cursor.to_string()))
         };
-        // ctx.eat_ws();
         res
     }
 }

@@ -77,7 +77,7 @@ fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
                 // type or sequence of types
                 
                 // Get the inside from SomeT< inside >
-                let inside = &inp[idx+1.. inp.len() - 1];
+                let _inside = &inp[idx+1.. inp.len() - 1];
 
                 // TODO(mike): Use sepBy(TypeParser, CharParser(',')) to get the inside
                 todo!()

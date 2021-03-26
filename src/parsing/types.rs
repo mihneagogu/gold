@@ -13,6 +13,7 @@ pub(crate) enum TypeParserErr {
     UnclosedGeneric(String),
     ContainsUnicode(String),
     InvalidFormat(String), // i*nt or i&n&t is not faild
+    EmptyStr
 }
 
 impl ParserErr for TypeParserErr {}
@@ -20,7 +21,7 @@ impl ParserErr for TypeParserErr {}
 /// A userdefined type is just another identifier.
 type UserType = IdentParser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Type();
 
 fn parse_ty(inp: &str) -> Result<Ty, TypeParserErr> {
@@ -102,13 +103,16 @@ impl Parser for Type {
         // TODO(mike): better way of capturing the input. We want to parse until we find an = of a
         // declaration or a '-' from "->". We basically want to somehow delimit what is part of the
         // type and what follows after
-        let inp = ctx.eat_until_cond(&|c| c == '-' || c == '=');
+        let inp = ctx.eat_until_cond(&|c| c == '-' || c == '=' || c == ',');
         println!("input: {}", inp);
         let is_usable = |c: char| c == ' ' || c == ',' || c == '_' || c == '<' || c == '>' || c == '&' || c == '*' || (c.is_ascii() && c.is_alphanumeric());
         let valid_chars = inp.chars().all(|c| is_usable(c));
         let inp_trimmed: String = inp.chars().filter(|c| *c != ' ').collect();
-        if !valid_chars || inp_trimmed.len() == 0 {
+        if !valid_chars {
             return Err(ContainsUnicode(inp.to_string()));
+        }
+        if inp_trimmed.is_empty() {
+            return Err(EmptyStr);
         }
         
         let r = parse_ty(&inp_trimmed);

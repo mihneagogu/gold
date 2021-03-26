@@ -6,7 +6,7 @@ mod ast;
 
 #[allow(unused_imports)]
 use parsing::combinators::*;
-use parsing::{Parser, ParsingContext, combinators::CharParser};
+use parsing::{Parser, ParsingBaggage, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
 use parsing::types::{Type, PrimitiveType};
 use ast::types;
@@ -40,13 +40,8 @@ fn main() {
 //         }
     //};
     let t = Type();
-    let ms = SepByParser::new(StringParser::new("Mike"), CharParser(','));
+    let ms = SepByParser::new(t, CharParser(','));
     
-    // println!("{:?}", t.run_parser(" &**i32"));
-    // println!("{:?}", t.run_parser(" & * *i32"));
-    
-    println!("{:?}", ms.run_parser("Mike  , Mike,     Mike"));
-    println!("{:?}", ms.run_parser("Mike  , Mike,     Mike,"));
-
+    println!("{:?}", ms.run_parser("&i32, **i32, **&&SomeStruct, Mike  , Mike,     Mike"));
 
 }

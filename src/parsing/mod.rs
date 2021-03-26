@@ -57,7 +57,8 @@ pub(crate) struct ParsingBaggage<'pctx> {
 }
 
 impl<'pctx> ParsingBaggage<'pctx> {
-    fn init() -> Self {
+    pub fn init() -> Self {
+
         let base_types = vec!["i128", "i64", "i32", "i16", "i8", "u128", "u64", "u32", "u16", "u8", "bool", "()", "f64", "f32"]; 
         let ps: Vec<_> = base_types.clone().into_iter().map(|t| StringParser::new(t)).collect();
         let ps: UnsafeCell<Vec<_>> = ps.into();

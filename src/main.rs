@@ -39,7 +39,8 @@ fn main() {
     //};
     let t = Type();
 
-    let mut ctx = ParsingContext::new("Mike<ofhi, i32, bye, wowiee<tyty, and, byebye>>");
-    let s = SepByParser::new(Type(), CharParser(','));
-    println!("{:?}", t.run_parser("HashMap<&*VecL<L1, L2>, Vec<Mike>>"));
+    let mut ctx = ParsingContext::new("Mike<Vec<i32>> = hello i am after");
+    println!("{:?}", t.parse(&ParsingBaggage::init(), &mut ctx));
+    println!("{:?}", &ctx);
+    println!("{:?}", ctx.input.chars().nth(ctx.index));
 }

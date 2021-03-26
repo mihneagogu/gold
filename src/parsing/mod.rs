@@ -292,26 +292,28 @@ impl<'inp> ParsingContext<'inp> {
         let mut brackets = VecDeque::new();
         for (idx, c) in self.cursor.chars().enumerate() {
             match c {
-                ch if should_end(ch) => break, // If we found an character which is no longer part of the type, we exit
+                ch if should_end(ch) => { 
+                    break // If we found an character which is no longer part of the type, we exit
+                },
                 ',' => {
-                    self.col += 1;
-                    advanced = idx;
                     // If the angle bracket stack is empty, it means we need to stop here. Otherwise it means we need to carry on
                     if brackets.is_empty() {
                         self.index += advanced;
+                        self.col += advanced;
                         let eaten = &self.cursor[..advanced];
                         self.cursor = &self.cursor[advanced..];
                         return Some(eaten);
                     }
+                    advanced = idx;
                     // Otherwise we just go on 
                 },
                 '\n' | '\t' | '\r' => { return None },
                 '<' => {
-                    self.col += 1;
+                    advanced = idx;
                     brackets.push_front('<');
                 }
                 '>' => {
-                    self.col += 1;
+                    advanced = idx;
                     if brackets.is_empty() {
                         // We found a > without a <
                         return None;
@@ -319,7 +321,7 @@ impl<'inp> ParsingContext<'inp> {
                     brackets.pop_front();
                 }
                 ch if !allowed_char(ch) => { return None },
-                _ => { self.col += 1; advanced = idx;  }
+                _ => { advanced = idx;  }
                     
 
             };
@@ -333,6 +335,7 @@ impl<'inp> ParsingContext<'inp> {
         // There still is a chance of having unclosed angle brackets
         if brackets.is_empty() {
             self.index += advanced;
+            self.col += advanced;
             let eaten = &self.cursor[..advanced];
             self.cursor = &self.cursor[advanced..];
             Some(eaten)

@@ -8,7 +8,7 @@ mod ast;
 use parsing::combinators::*;
 use parsing::{Parser, ParsingBaggage, ParsingContext, combinators::CharParser};
 use parsing::literals::{IdentParser, NumberParser};
-use parsing::types::{Type, PrimitiveType};
+use parsing::types::Type;
 use ast::types;
 
 
@@ -38,9 +38,10 @@ fn main() {
 //         }
     //};
     let t = Type;
-    let g = CharParser('<').discard_then(SepByParser::new(Type, CharParser(','))).then_discard(CharParser('>'));
 
-    println!("{:?}", IdentParser.run_parser("Mike>"));
-    println!("{:?}", Type.then_discard(g).run_parser("Vec<Mike, Asd>"));
-    // println!("{:?}", t.run_parser(" Mike<i32> ty"));
+    let mut ctx = ParsingContext::new(" \n Vec<Hello<Hi>> abcdef");
+    println!("{:?}", t.parse(&ParsingBaggage::init(), &mut ctx));
+    println!("{:?}", &ctx);
+    println!("{:?}", &ctx.input[ctx.index..]);
+
 }

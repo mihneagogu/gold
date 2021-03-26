@@ -32,8 +32,8 @@ pub(crate) enum IdentParserErrReason {
 
 #[derive(Debug)]
 pub(crate) struct IdentParserErr {
-    found: String,
-    reason: IdentParserErrReason,
+    pub found: String,
+    pub reason: IdentParserErrReason,
     row: usize,
     col: usize
 }

@@ -152,7 +152,14 @@ def Deref for Box<T> {
 
 def Destroy for Box<T> {
 	public fun drop() {
-		unsafe { dealloc(ptr as *u8) };
+		unsafe { 
+			// Copy the bits that the pointer points to
+			// so we get an actual T which we can drop
+			T t = ptr::read<T>(self.ptr, sizeof<T>());
+			// Dealloc the heap pointer
+			dealloc(self.ptr);
+			// drop(t) called implicity, running T's Drop method
+		};
 	}
 }
 

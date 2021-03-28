@@ -230,6 +230,17 @@ impl<'inp> ParsingContext<'inp> {
         self.cursor = cursor;
     }
 
+    /// Advances the parser n characters. The caller must make sure
+    /// that there are no '\n' in the input skipped, as that would
+    /// make the col and row numbers wrong. This should be called only
+    /// if we know that in self.cursor[..n] there are no '\n'
+    pub fn advance_many(&mut self, n: usize) -> &mut Self {
+        self.col += n;
+        self.index += n;
+        self.cursor = &self.cursor[n..];
+        self
+    }
+
     pub fn advance_one(&mut self) -> &mut Self {
         self.col += 1;
         self.index += 1;

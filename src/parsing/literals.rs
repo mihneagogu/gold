@@ -43,34 +43,6 @@ impl IdentParserErr {
         Self { found: found.to_string(), reason, row: 0, col: 0 }
     }
 
-    fn _parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<String, IdentParserErr> {
-        let inp = ctx.eat_until_ws();
-        let _inp = inp.to_string();
-        let inp: &str = &_inp;
-        if ctx.contains_keyword(inp) {
-            return Err(IdentParserErr::new(inp, FoundKeyword));
-        }
-        let first = inp.chars().nth(0).unwrap();
-        let first_is_ok = (first.is_alphabetic() && first.is_ascii()) || first == '_';
-        if !first_is_ok {
-            return Err(IdentParserErr::new(inp, IllicitChar(first)));
-        }
-        let mut alphanum_count = 0;
-        for c in inp.chars() {
-            if c.is_alphanumeric() && c.is_ascii() {
-                alphanum_count += 1;
-            } else if c != '_' {
-                return Err(IdentParserErr::new(inp, IllicitChar(c)));
-            }
-        }
-        
-        if alphanum_count == 0 {
-            Err(IdentParserErr::new(inp, NoAlphaNum))
-        } else {
-            Ok(inp.to_string())
-        }
-
-    }
 }
 
 
@@ -134,8 +106,32 @@ impl Parser for NumberParser {
 
     fn parse(&self, _baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         use NumberParseErr::InvalidNumber;
+        // We follow a similar approach to the IdentParser. We can't really
+        // eat everything until whitespace, since the ' ' might not necessarily
+        // be what we have after a declaration of a number
+        
+        // TODO(mike): hex numbers
+        
+        const BASE: u32 = 10;
 
-        let inp = ctx.eat_until_ws();
+        let mut eaten = 0;
+        let mut is_neg = false;
+        for (idx, c) in ctx.cursor.chars().enumerate() {
+            match c {
+                '-' if idx == 0 => { is_neg = true; eaten += 1 },
+                ch if !ch.is_digit(BASE) => break,
+                _ => eaten += 1,
+            };
+            
+        }
+
+        if eaten == 0 || (eaten == 1 && is_neg) {
+            // We may have no input or the string "-"
+            return Err(NumberParseErr::EmptyStr);
+        }
+
+        let inp = &ctx.cursor[..eaten];
+        ctx.advance_many(eaten);
         match inp.parse::<i32>() {
             Ok(n) => { ctx.eat_ws() ; Ok(n) }
             Err(e) => match e.kind() {

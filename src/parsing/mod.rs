@@ -28,7 +28,9 @@ use combinators::{StringParseErr, StringParser};
 use self::combinators::AlternativeParser;
 
 // Empty for now
-pub(crate) trait ParserErr: Debug {}
+pub(crate) trait ParserErr: Debug {
+    fn label(&self) -> String;
+}
 
 
 /// This is a struct which represents the whole parsing context,
@@ -155,7 +157,15 @@ where F: ParserErr, S: ParserErr
     SecondError(S)
 }
 
-impl<F: ParserErr, S: ParserErr> ParserErr for DoubleParserErr<F, S> {}
+impl<F: ParserErr, S: ParserErr> ParserErr for DoubleParserErr<F, S> {
+    fn label(&self) -> String {
+        use DoubleParserErr::*;
+        match self {
+            FirstError(f) => f.label(),
+            SecondError(s) => s.label()
+        }
+    }
+}
 
 impl<F: Parser, S: Parser> Parser for DiscardThenParser<F, S> {
     type Output = S::Output;
@@ -167,7 +177,12 @@ impl<F: Parser, S: Parser> Parser for DiscardThenParser<F, S> {
 
 }
 
-impl<'a, E: ParserErr> ParserErr for &'a E {}
+impl<'a, E: ParserErr> ParserErr for &'a E {
+    fn label(&self) -> String {
+        self.label()
+    }
+
+}
 impl<'a, T: Parser> Parser for &'a T {
     type Output = T::Output;
     type PErr = T::PErr;
@@ -404,6 +419,26 @@ impl<'inp> ParsingContext<'inp> {
         self
     }
 
+}
+
+fn mk_string<Sep: AsRef<str>>(items: &Vec<String>, sep: Sep, begin: Sep, end: Sep) -> String {
+    const AVG_ITEM_LEN: usize = 5;
+    let len = items.len();
+    let sep = sep.as_ref();
+    let mut res = String::from(begin.as_ref());
+
+    res.reserve(AVG_ITEM_LEN * len + sep.len() * len);
+
+    for i in 0..=len - 1 {
+        let item = unsafe { items.get_unchecked(i) };
+        if i == len - 1 {
+            res.push_str(item.as_str());
+        } else {
+            res.push_str(format!("{}{}", item, sep).as_str());
+        }
+    }
+    res.push_str(end.as_ref());
+    res
 }
 
 

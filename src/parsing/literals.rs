@@ -14,7 +14,11 @@ pub(crate) enum NumberParseErr {
     EmptyStr,
 }
 
-impl ParserErr for NumberParseErr {}
+impl ParserErr for NumberParseErr {
+    fn label(&self) -> String {
+        String::from("number")
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct NumberParser {}
@@ -46,7 +50,11 @@ impl IdentParserErr {
 }
 
 
-impl ParserErr for IdentParserErr {}
+impl ParserErr for IdentParserErr {
+    fn label(&self) -> String {
+        String::from("identifier")
+    }
+}
 
 use IdentParserErrReason::*;
 impl Parser for IdentParser {

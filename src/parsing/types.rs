@@ -33,7 +33,11 @@ impl Parser for SimpleType {
     }
 }
 
-impl ParserErr for TypeParserErr {}
+impl ParserErr for TypeParserErr {
+    fn label(&self) -> String {
+        String::from("type")
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Type;

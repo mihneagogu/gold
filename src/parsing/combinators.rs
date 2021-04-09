@@ -1,4 +1,4 @@
-use crate::parsing::{ParsingContext, ParserErr, Parser, ParsingBaggage};
+use crate::parsing::{ParsingContext, ParserErr, Parser, ParsingBaggage, mk_string};
 
 // TODO(mike): Add labels to all parsers, so that the alternative parser
 // can have its own label like this:
@@ -37,7 +37,11 @@ impl<P, Del> SepByParser<P, Del> {
     }
 }
 
-impl ParserErr for Box<dyn ParserErr> {}
+impl ParserErr for Box<dyn ParserErr> {
+    fn label(&self) -> String {
+        self.label()
+    }
+}
 
 impl<P: Parser, Del: Parser> Parser for SepByParser<P, Del> {
     type Output = Vec<P::Output>;
@@ -135,6 +139,17 @@ pub(crate) struct AlternativeParser<'ps, O: std::fmt::Debug, E: std::fmt::Debug>
     variants: Vec<&'ps dyn Parser<Output = O, PErr = E>>
 }
 
+#[derive(Debug)]
+pub(crate) struct AlternativeParserErr {
+    variants: Vec<String>
+}
+
+impl ParserErr for AlternativeParserErr {
+    fn label(&self) -> String {
+        mk_string(&self.variants, ", ", "[", "]")
+    }
+}
+
 use std::fmt::Debug;
 
 
@@ -149,7 +164,7 @@ impl<'ps, O, E> AlternativeParser<'ps, O, E>
 impl<'ps, O: Debug, E: Debug + ParserErr> Parser for AlternativeParser<'ps, O, E> {
     type Output = O;
     // TODO(mike): This isn't right, we need a custom error type.
-    type PErr = ();
+    type PErr = AlternativeParserErr;
     fn parse (&self, baggage: &ParsingBaggage,ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         let mut res = None;
         // Perform all parsers until we succeed or we run out of things to do
@@ -160,10 +175,9 @@ impl<'ps, O: Debug, E: Debug + ParserErr> Parser for AlternativeParser<'ps, O, E
                 _ => ()
             }
         }
-        if let Some(o) = res {
-            Ok(o)
-        } else {
-            Err( () ) // TODO(mike): Change this to actual error type
+        match res {
+            Some(o) => Ok(o),
+            None => Err(AlternativeParserErr { variants: Vec::new() })
         }
     }
 
@@ -263,9 +277,24 @@ impl RawCharParser {
 #[derive(Debug)]
 pub(crate) enum CharParseErr {
     CharMismatch(char, char), // expected, found
-    Empty
+    Empty(char) // expected
 }
-impl ParserErr for CharParseErr {}
+
+impl CharParseErr {
+    fn expected(&self) -> char {
+        match self {
+            CharParseErr::CharMismatch(exp, _) => *exp,
+            CharParseErr::Empty(exp) => *exp
+        }
+    }
+}
+
+impl ParserErr for CharParseErr {
+
+    fn label(&self) -> String {
+        format!("char {}", self.expected())
+    }
+}
 
 impl Parser for RawCharParser {
     type Output = char;
@@ -273,7 +302,7 @@ impl Parser for RawCharParser {
 
     fn parse(&self, baggage: &ParsingBaggage, ctx: &mut ParsingContext) -> Result<Self::Output, Self::PErr> {
         match ctx.peek_char() {
-            None => Err(CharParseErr::Empty),
+            None => Err(CharParseErr::Empty(self.0)),
             Some(ch) => {
                 let res = if ch == self.0 {
                     Ok(ch)
@@ -302,10 +331,24 @@ impl RawStringParser {
 #[derive(Debug)]
 pub(crate) enum StringParseErr {
     StringMismatch(&'static str, String),
-    NotEnoughInput // We couldn't read that many chars, but we have STRING
+    NotEnoughInput(&'static str) // We couldn't read that many chars, but we have STRING
 }
 
-impl ParserErr for StringParseErr {}
+impl StringParseErr {
+    fn expected(&self) -> &'static str {
+        match self {
+            StringParseErr::StringMismatch(exp, _) => *exp,
+            StringParseErr::NotEnoughInput(exp) => *exp
+        }
+    }
+}
+
+
+impl ParserErr for StringParseErr {
+    fn label(&self) -> String {
+        format!("the string {}", self.expected())
+    }
+}
 
 impl Parser for RawStringParser {
     type Output = &'static str;
@@ -372,7 +415,11 @@ impl<P: Parser> OptionParser<P> {
 }
 
 
-impl ParserErr for () { }
+impl ParserErr for () {
+    fn label(&self) -> String {
+        unreachable!("You tried to label () as a ParserErr. Something went wrong!")
+    }
+}
 
 impl<P: Parser> Parser for OptionParser<P> {
     // The OptionParser never fails, it's just that it might not find 
